@@ -5,6 +5,7 @@ import '../components/HomeSearchBar.dart';
 import '../components/ServiceCategoryChips.dart';
 import '../components/TrustBanners.dart';
 import '../components/LocalWorkerHighlight.dart';
+import '../components/TopOffersList.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -76,9 +77,9 @@ class HomePageState extends State<HomePage> {
                     ImageCarousel(),
                     SizedBox(height: 12),
                     FeaturedCarousel(),
-
                     TrustBanners(),
                     LocalWorkerHighlight(),
+                    TopOffersList()
                   ],
                 ),
               ),
