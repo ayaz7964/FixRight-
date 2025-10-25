@@ -27,13 +27,30 @@ environment:
 # dependencies can be manually updated by changing the version numbers below to
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
+# dependencies:
+#   flutter:
+#     sdk: flutter
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  # cupertino_icons: ^1.0.8
+  # provider: ^6.0.5
+  # http: ^0.14.0
+  # shared_preferences: ^2.0.15
 dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  # All packages must be indented two spaces under 'dependencies:'
+  http: ^1.5.0
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.3
+  carousel_slider: ^5.0.1
+  
+  # You can remove the older, duplicated entries below
+  # provider: ^6.0.5 
+  # http: ^0.14.0
+  # shared_preferences: ^2.0.15
 
 dev_dependencies:
   flutter_test:
@@ -87,3 +104,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
