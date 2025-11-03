@@ -47,6 +47,7 @@ dependencies:
   shared_preferences: ^2.5.3
   carousel_slider: ^5.0.1
   intl: ^0.19.0
+  intl_phone_field: ^3.2.0
   
   # You can remove the older, duplicated entries below
   # provider: ^6.0.5 

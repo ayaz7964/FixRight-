@@ -1,5 +1,4 @@
 // lib/src/models/order_model.dart
-import 'package:flutter/foundation.dart';
 
 class Attachment {
   final String id;

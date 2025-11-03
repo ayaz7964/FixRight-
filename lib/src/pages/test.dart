@@ -44,7 +44,7 @@ class _HomePageState extends State<HomePage> {
     final cat = cats[i % cats.length];
     return {
       'id': '$i',
-      'title': '${cat} Job #${i + 1}',
+      'title': '$cat Job #${i + 1}',
       'description': 'Short description for ${cat.toLowerCase()} job number ${i + 1}.',
       'price': 1500 + (i * 250),
       'category': cat,

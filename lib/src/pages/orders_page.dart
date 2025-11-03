@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'order_detail_page.dart';
 
 class OrdersPage extends StatefulWidget {
-  const OrdersPage({Key? key}) : super(key: key);
+  const OrdersPage({super.key});
 
   @override
   State<OrdersPage> createState() => _OrdersPageState();

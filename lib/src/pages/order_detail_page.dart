@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 class OrderDetailPage extends StatefulWidget {
   final Map<String, dynamic> order;
-  const OrderDetailPage({Key? key, required this.order}) : super(key: key);
+  const OrderDetailPage({super.key, required this.order});
 
   @override
   State<OrderDetailPage> createState() => _OrderDetailPageState();
@@ -83,7 +83,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       contentPadding: EdgeInsets.zero,
       leading: const Icon(Icons.insert_drive_file_outlined),
       title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text('$mime • ${kb} KB', style: const TextStyle(fontSize: 12)),
+      subtitle: Text('$mime • $kb KB', style: const TextStyle(fontSize: 12)),
       trailing: IconButton(
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(

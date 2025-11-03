@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import './home_page.dart';
 // Import all necessary pages
 import './MessageChatBotScreen.dart';
-import 'ManageOrdersScreen.dart';
 // import 'TutorialsScreen.dart';
 import './orders_page.dart';
 // import 'ProfileScreen.dart';
@@ -26,7 +25,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
     const HomePage(), // 0. Home
     const MessageChatBotScreen(), // 1. Message
     const OrdersPage(), // 2. Orders (Originally Index 3)
-    const TutorialsScreen(), // 3. Tutorials (Originally Index 4)
+    // const TutorialsScreen(), // 3. Tutorials (Originally Index 4)
     const ProfileScreen(), // 4. Profile (Originally Index 5)
   ];
 
@@ -181,10 +180,10 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
             _buildNavItem(3, Icons.assignment, 'Orders'),
 
             // Tab 4 (Content Index 3): Tutorials
-            _buildNavItem(4, Icons.video_library, 'Tutorials'),
+            // _buildNavItem(4, Icons.video_library, 'Tutorials'),
 
             // Tab 5 (Content Index 4): Profile
-            _buildNavItem(5, Icons.person, 'Profile'),
+            _buildNavItem(4, Icons.person, 'Profile'),
           ],
         ),
       ),
@@ -210,8 +209,17 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('My Profile')),
-    body: const Center(
-      child: Text('Profile Settings, Notifications, Switch to Worker Mode'),
+    body: Center(
+      child: Column(
+        children: [
+          Text('Profile Settings, Notifications, Switch to Worker Mode'),
+          ElevatedButton(onPressed: () {
+            Navigator.pushReplacementNamed(context, '/');
+          },
+           child: Text('Logout') )
+        ],
+      )
+
     ),
   );
 }
