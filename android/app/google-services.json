@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "132997509899",
+    "project_id": "fixright-project",
+    "storage_bucket": "fixright-project.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:132997509899:android:5986ff6f42fdec7369280e",
+        "android_client_info": {
+          "package_name": "com.example.fixright"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJtvJ6rbFfg0066BpGgbbvZTYR5SiQOcc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

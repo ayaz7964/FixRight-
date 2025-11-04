@@ -177,7 +177,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
             _buildNavItem(_postJobIndex, Icons.add, 'Post'),
 
             // Tab 3 (Content Index 2): Orders
-            _buildNavItem(3, Icons.assignment, 'Orders'),
+            _buildNavItem(3, Icons.assignment, 'Services'),
 
             // Tab 4 (Content Index 3): Tutorials
             // _buildNavItem(4, Icons.video_library, 'Tutorials'),
