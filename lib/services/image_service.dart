@@ -29,7 +29,7 @@ class ImageService {
   }
 
   Future<File> _compressFile(File file, int maxDim) async {
-    final targetPath = file.path + '_cmp.jpg';
+    final targetPath = '${file.path}_cmp.jpg';
     final XFile? result = await FlutterImageCompress.compressAndGetFile(
       file.absolute.path,
       targetPath,

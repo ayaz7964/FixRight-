@@ -49,7 +49,7 @@ class ImageService {
 
 class HomeScreen extends StatelessWidget {
   static const routeName = '/home';
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -118,10 +118,10 @@ class OtpScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
 
   const OtpScreen({
-    Key? key,
+    super.key,
     required this.verificationId,
     required this.userData,
-  }) : super(key: key);
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -300,7 +300,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
 class SignupScreen extends StatefulWidget {
   static const routeName = '/signup';
-  const SignupScreen({Key? key}) : super(key: key);
+  const SignupScreen({super.key});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -433,16 +433,14 @@ class _SignupScreenState extends State<SignupScreen> {
         verificationFailed: (e) {
           setState(() => _saving = false);
           String message = 'Phone verification failed.';
-          if (e is FirebaseAuthException) {
-            if (e.code == 'invalid-phone-number') {
-              message = 'Invalid phone number format or country code.';
-            } else if (e.code == 'too-many-requests') {
-              message = 'Too many requests. Please try again later.';
-            } else {
-              message = e.message ?? 'Unknown authentication error.';
-            }
+          if (e.code == 'invalid-phone-number') {
+            message = 'Invalid phone number format or country code.';
+          } else if (e.code == 'too-many-requests') {
+            message = 'Too many requests. Please try again later.';
+          } else {
+            message = e.message ?? 'Unknown authentication error.';
           }
-
+        
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('❌ Auth Error: $message')));
         },

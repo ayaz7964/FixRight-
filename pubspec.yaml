@@ -91,7 +91,9 @@
 #   uses-material-design: true
 
 #   # To add assets to your application, add an assets section, like this:
-#   # assets:
+
+# assets:
+
 #   #   - images/a_dot_burr.jpeg
 #   #   - images/a_dot_ham.jpeg
 
@@ -167,6 +169,7 @@ dependencies:
   country_picker: ^2.0.21
   lottie: ^3.0.0
   flutter_svg: ^2.2.1
+  google_sign_in: ^6.1.5
 
 dev_dependencies:
   flutter_test:
@@ -176,5 +179,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # assets:
+  #   - .env
+  #   - /images
+# flutter:
+  # ... other flutter settings ...
   assets:
     - .env
+    - assets/images/ # <-- CORRECT PATH: It points to the directory itself
