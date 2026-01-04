@@ -76,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
       },
       verificationFailed: (FirebaseAuthException e) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message ?? 'Error')));
+            .showSnackBar(SnackBar(content: Text(e.message ?? 'Error'))); // error throen here 
         setState(() => isLoading = false);
       },
       codeSent: (String verId, int? resendToken) {
@@ -130,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 10),
                 const SizedBox(height: 15),
                 Text(
-                  'Welcome to Smart Domestic Services',
+                  'Welcome to FixRight',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 20,
