@@ -222,15 +222,15 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               
                               // 3. UI: ADDED GOOGLE BUTTON AND DIVIDER HERE
-                              const SizedBox(height: 20),
-                              Row(children: <Widget>[
-                                Expanded(child: Divider(color: Colors.grey.shade400)),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                                  child: Text("OR", style: TextStyle(color: Colors.grey.shade600)),
-                                ),
-                                Expanded(child: Divider(color: Colors.grey.shade400)),
-                              ]),
+                              // const SizedBox(height: 20),
+                              // Row(children: <Widget>[
+                              //   Expanded(child: Divider(color: Colors.grey.shade400)),
+                              //   Padding(
+                              //     padding: const EdgeInsets.symmetric(horizontal: 10),
+                              //     child: Text("OR", style: TextStyle(color: Colors.grey.shade600)),
+                              //   ),
+                              //   Expanded(child: Divider(color: Colors.grey.shade400)),
+                              // ]),
                               const SizedBox(height: 20),
                               // OutlinedButton(
                               //   onPressed: isLoading ? null : _signInWithGoogle,
