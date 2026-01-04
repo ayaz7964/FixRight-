@@ -746,6 +746,8 @@
 
 
 
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 class SignupScreen extends StatelessWidget {
   const SignupScreen({super.key});
@@ -753,8 +755,18 @@ class SignupScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Signup Page'),
+        leading: BackButton(
+          onPressed: () => Navigator.pushReplacementNamed(context, '/'),
+        ),
+      ),
       body: Center(
-        child: Text('Signup Page Placeholder'),
+        child: Column(
+          children: [
+            
+          ],
+        )
       ),
     );
   }
