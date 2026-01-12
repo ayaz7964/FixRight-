@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:country_picker/country_picker.dart';
-import 'package:google_sign_in/google_sign_in.dart'; // 1. IMPORT ADDED
+import '../../services/auth_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,6 +13,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthService _authService = AuthService();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
   bool codeSent = false;
@@ -31,40 +33,6 @@ class _LoginPageState extends State<LoginPage> {
     e164Key: '',
   );
 
-  // 2. GOOGLE SIGN IN FUNCTION ADDED
-  Future<void> _signInWithGoogle() async {
-    setState(() => isLoading = true);
-    try {
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-
-      if (googleUser == null) {
-        // The user canceled the sign-in
-        setState(() => isLoading = false);
-        return;
-      }
-
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Create a new credential
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Once signed in, return the UserCredential
-      await _auth.signInWithCredential(credential);
-      _navigateToHome();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google Sign-In Failed: $e')),
-      );
-      setState(() => isLoading = false);
-    }
-  }
-
   Future<void> _verifyPhone() async {
     setState(() => isLoading = true);
     await _auth.verifyPhoneNumber(
@@ -75,8 +43,9 @@ class _LoginPageState extends State<LoginPage> {
         _navigateToHome();
       },
       verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message ?? 'Error'))); // error throen here 
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Error')),
+        ); // error throen here
         setState(() => isLoading = false);
       },
       codeSent: (String verId, int? resendToken) {
@@ -100,11 +69,51 @@ class _LoginPageState extends State<LoginPage> {
         smsCode: _otpController.text.trim(),
       );
       await _auth.signInWithCredential(credential);
+      await _requestLocationAndNavigate();
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid OTP')));
+      setState(() => isLoading = false);
+    }
+  }
+
+  /// Request location permission after successful login and update user profile
+  Future<void> _requestLocationAndNavigate() async {
+    final phoneDocId = _authService.getUserPhoneDocId();
+
+    if (phoneDocId == null) {
+      _navigateToHome();
+      return;
+    }
+
+    try {
+      // Request location permission
+      final permission = await Geolocator.requestPermission();
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        // Update user location in Firestore
+        await _authService.updateUserLocation(phoneDocId);
+      } else if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        // Show dialog explaining why location is needed
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Location access is needed for Live Tracking. You can enable it in settings.',
+              ),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+
       _navigateToHome();
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Invalid OTP')));
-      setState(() => isLoading = false);
+      print('Error requesting location: $e');
+      _navigateToHome();
     }
   }
 
@@ -143,7 +152,8 @@ class _LoginPageState extends State<LoginPage> {
                 Card(
                   elevation: 8,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -151,12 +161,12 @@ class _LoginPageState extends State<LoginPage> {
                         if (!codeSent)
                           Column(
                             children: [
-                           
                               Text(
                                 'Select Country',
                                 style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey.shade700),
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               GestureDetector(
@@ -164,17 +174,19 @@ class _LoginPageState extends State<LoginPage> {
                                   showCountryPicker(
                                     context: context,
                                     onSelect: (Country country) {
-                                      setState(
-                                          () => selectedCountry = country);
+                                      setState(() => selectedCountry = country);
                                     },
                                   );
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 14),
+                                    horizontal: 12,
+                                    vertical: 14,
+                                  ),
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                        color: Colors.grey.shade400),
+                                      color: Colors.grey.shade400,
+                                    ),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
@@ -209,18 +221,22 @@ class _LoginPageState extends State<LoginPage> {
                                   backgroundColor: Colors.blueAccent,
                                   minimumSize: const Size.fromHeight(50),
                                   shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(15)),
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
                                 ),
                                 child: isLoading
                                     ? const CircularProgressIndicator(
-                                        color: Colors.white)
+                                        color: Colors.white,
+                                      )
                                     : const Text(
                                         'Send OTP',
                                         style: TextStyle(
-                                            fontSize: 16, color: Colors.white),
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                        ),
                                       ),
                               ),
-                              
+
                               // 3. UI: ADDED GOOGLE BUTTON AND DIVIDER HERE
                               // const SizedBox(height: 20),
                               // Row(children: <Widget>[
@@ -281,15 +297,19 @@ class _LoginPageState extends State<LoginPage> {
                                   backgroundColor: Colors.green,
                                   minimumSize: const Size.fromHeight(50),
                                   shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(15)),
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
                                 ),
                                 child: isLoading
                                     ? const CircularProgressIndicator(
-                                        color: Colors.white)
+                                        color: Colors.white,
+                                      )
                                     : const Text(
                                         'Verify OTP',
                                         style: TextStyle(
-                                            fontSize: 16, color: Colors.white),
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                        ),
                                       ),
                               ),
                               const SizedBox(height: 10),

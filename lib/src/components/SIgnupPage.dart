@@ -14,7 +14,7 @@
 // // -------------------------------------------------------------------
 
 // class UserService {
-//   static String? savedGlobalUserId; 
+//   static String? savedGlobalUserId;
 
 //   Future<void> createUserProfile({
 //     required String uid,
@@ -27,8 +27,8 @@
 //     String? photoUrl,
 //   }) async {
 //     // Simulating database saving delay (e.g., Firestore write)
-//     await Future.delayed(const Duration(seconds: 1)); 
-//     savedGlobalUserId = uniqueId; 
+//     await Future.delayed(const Duration(seconds: 1));
+//     savedGlobalUserId = uniqueId;
 
 //     print('✅ User profile saved to Firebase/DB: $uniqueId');
 //     print('   - Photo URL: ${photoUrl ?? 'None'}');
@@ -91,8 +91,8 @@
 //               ElevatedButton(
 //                 onPressed: () async {
 //                   // Simulate Firebase logout
-//                   await FirebaseAuth.instance.signOut(); 
-//                   UserService.savedGlobalUserId = null; 
+//                   await FirebaseAuth.instance.signOut();
+//                   UserService.savedGlobalUserId = null;
 //                   Navigator.of(context).pushNamedAndRemoveUntil(SignupScreen.routeName, (Route<dynamic> route) => false);
 //                 },
 //                 style: ElevatedButton.styleFrom(
@@ -108,7 +108,6 @@
 //     );
 //   }
 // }
-
 
 // // -------------------------------------------------------------------
 // // 🔐 OTP Verification Screen
@@ -145,7 +144,7 @@
 
 //     setState(() => _isVerifying = true);
 //     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    
+
 //     try {
 //       final String smsCode = _otpController.text.trim();
 
@@ -155,7 +154,7 @@
 //       // Sign in the user with the credential
 //       await FirebaseAuth.instance.signInWithCredential(credential);
 
-//       // User authenticated: Proceed to save data in services 
+//       // User authenticated: Proceed to save data in services
 //       await _saveUserDataAndNavigate(widget.userData);
 
 //     } on FirebaseAuthException catch (e) {
@@ -165,7 +164,7 @@
 //       } else if (e.code == 'session-expired') {
 //         message = 'Code expired. Please go back and resend the code.';
 //       }
-      
+
 //       ScaffoldMessenger.of(context).showSnackBar(
 //         SnackBar(content: Text('❌ Auth Error: $message')),
 //       );
@@ -202,17 +201,16 @@
 //       lastName: data['lastName'],
 //       phone: data['phone'],
 //       // Use "N/A" if location was skipped/failed
-//       city: data['city'] ?? 'N/A', 
+//       city: data['city'] ?? 'N/A',
 //       county: data['country'] ?? 'N/A',
 //       photoUrl: photoUrl,
 //     );
-    
+
 //     ScaffoldMessenger.of(context).showSnackBar(
 //         const SnackBar(content: Text('✅ Registration Complete! Redirecting...')));
-    
+
 //     Navigator.of(context).pushNamedAndRemoveUntil(HomeScreen.routeName, (Route<dynamic> route) => false);
 //   }
-
 
 //   @override
 //   Widget build(BuildContext context) {
@@ -339,7 +337,7 @@
 //   Future<void> _getUserLocation() async {
 //     try {
 //       setState(() => _fetchingLocation = true);
-      
+
 //       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 //       if (!serviceEnabled) {
 //         throw Exception('Location service disabled.');
@@ -359,7 +357,7 @@
 
 //       // Set timeout for professional experience (prevents ANR)
 //       final pos = await Geolocator.getCurrentPosition(
-//         desiredAccuracy: LocationAccuracy.medium, 
+//         desiredAccuracy: LocationAccuracy.medium,
 //         timeLimit: const Duration(seconds: 8), // Reduced time to prevent blocking
 //       );
 
@@ -379,7 +377,7 @@
 //       }
 //     } catch (e) {
 //       // ⚠️ IMPORTANT FIX: Log error but allow registration to continue.
-//       print('Location Fetch Error: ${e.toString()}'); 
+//       print('Location Fetch Error: ${e.toString()}');
 //       ScaffoldMessenger.of(context).showSnackBar(
 //         SnackBar(
 //           content: Text('⚠️ Location could not be detected. Registration will proceed without it.'),
@@ -409,26 +407,26 @@
 //   Future<void> _register() async {
 //     // 1. Initial Validation
 //     if (!_formKey.currentState!.validate()) return;
-//     if (phone.isEmpty || phone.length < 10) { 
+//     if (phone.isEmpty || phone.length < 10) {
 //       ScaffoldMessenger.of(context)
 //           .showSnackBar(const SnackBar(content: Text('Please enter a complete phone number.')));
 //       return;
 //     }
 
 //     setState(() => _saving = true);
-//     ScaffoldMessenger.of(context).hideCurrentSnackBar(); 
+//     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
 //     try {
 //       // 2. Start Firebase Phone Authentication
 //       await FirebaseAuth.instance.verifyPhoneNumber(
 //         phoneNumber: phone,
-        
+
 //         verificationCompleted: (PhoneAuthCredential credential) async {
 //           await FirebaseAuth.instance.signInWithCredential(credential);
 //           // If auto-verified, go straight to saving data (passing current state data)
 //           await _onUserAuthenticated(FirebaseAuth.instance.currentUser, isAuto: true);
 //         },
-        
+
 //         // 3. Error Handling for common failures
 //         verificationFailed: (e) {
 //           setState(() => _saving = false);
@@ -440,14 +438,14 @@
 //           } else {
 //             message = e.message ?? 'Unknown authentication error.';
 //           }
-        
+
 //           ScaffoldMessenger.of(context).showSnackBar(
 //               SnackBar(content: Text('❌ Auth Error: $message')));
 //         },
-        
+
 //         // 4. Code Sent: Navigate to OTP Screen
 //         codeSent: (verificationId, resendToken) async {
-          
+
 //           setState(() => _saving = false);
 
 //           final userData = {
@@ -455,11 +453,11 @@
 //             'lastName': _last.text.trim(),
 //             'phone': phone,
 //             // Pass actual location data, or null/skipped markers
-//             'city': city, 
+//             'city': city,
 //             'country': country,
 //             'imageFile': _image,
 //           };
-          
+
 //           ScaffoldMessenger.of(context).showSnackBar(
 //             const SnackBar(content: Text('Verification code sent. Redirecting...')),
 //           );
@@ -474,7 +472,7 @@
 //             ),
 //           );
 //         },
-        
+
 //         codeAutoRetrievalTimeout: (verificationId) {},
 //       );
 //     } catch (e) {
@@ -487,7 +485,7 @@
 //   // Handles data saving for the rare auto-verification path
 //   Future<void> _onUserAuthenticated(User? user, {required bool isAuto}) async {
 //     if (user == null || !isAuto) return;
-    
+
 //     final String userId = const Uuid().v4();
 //     String? photoUrl;
 //     if (_image != null) {
@@ -504,13 +502,12 @@
 //         county: country ?? 'N/A',
 //         photoUrl: photoUrl,
 //     );
-    
+
 //     ScaffoldMessenger.of(context).showSnackBar(
 //         const SnackBar(content: Text('✅ Auto Registration Complete!')));
-            
+
 //     Navigator.pushReplacementNamed(context, HomeScreen.routeName);
 //   }
-
 
 //   /// ---------------- UI BUILD ----------------
 //   @override
@@ -575,7 +572,7 @@
 //                       ),
 //                       const SizedBox(height: 24),
 
-//                       // Avatar 
+//                       // Avatar
 //                       GestureDetector(
 //                         onTap: _pickImage,
 //                         child: Stack(
@@ -642,7 +639,7 @@
 //                             ),
 
 //                       const SizedBox(height: 18),
-                      
+
 //                       // Phone Number Field
 //                       IntlPhoneField(
 //                         initialCountryCode: 'PK', // Default country code
@@ -653,7 +650,7 @@
 //                             ? 'Please enter your phone number'
 //                             : null,
 //                       ),
-                      
+
 //                       const SizedBox(height: 30),
 
 //                       // Register Button
@@ -744,11 +741,8 @@
 //   }
 // }
 
-
-
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+
 class SignupScreen extends StatelessWidget {
   const SignupScreen({super.key});
 
@@ -761,13 +755,10 @@ class SignupScreen extends StatelessWidget {
           onPressed: () => Navigator.pushReplacementNamed(context, '/'),
         ),
       ),
-      body: Center(
-        child: Column(
-          children: [
+      body: Center(child: Column(children: [
             
           ],
-        )
-      ),
+        )),
     );
   }
 }

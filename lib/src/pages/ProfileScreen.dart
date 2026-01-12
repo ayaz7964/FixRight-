@@ -1,8 +1,9 @@
-
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
-  // NEW: Must receive the current mode and the function to toggle it
   final bool isSellerMode;
   final ValueChanged<bool> onToggleMode;
 
@@ -17,7 +18,45 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // --- Profile Options Lists and Widgets for the Profile Screen Itself ---
+  final AuthService _authService = AuthService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late String phoneDocId;
+  bool isLoading = true;
+
+  // User profile data
+  String firstName = '';
+  String lastName = '';
+  String address = '';
+  String phoneNumber = '';
+
+  @override
+  void initState() {
+    super.initState();
+    phoneDocId = _authService.getUserPhoneDocId() ?? '';
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final userDoc = await _authService.getUserProfile(phoneDocId);
+
+      if (userDoc != null) {
+        final data = userDoc.data() as Map<String, dynamic>;
+        setState(() {
+          firstName = data['firstName'] ?? '';
+          lastName = data['lastName'] ?? '';
+          address = data['address'] ?? '';
+          phoneNumber = data['phoneNumber'] ?? '';
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+      }
+    } catch (e) {
+      print('Error loading profile: $e');
+      setState(() => isLoading = false);
+    }
+  }
 
   // Options for the BUYER/Client mode
   final List<Map<String, dynamic>> _buyerOptions = [
@@ -33,39 +72,149 @@ class _ProfileScreenState extends State<ProfileScreen> {
     {'icon': Icons.description, 'title': 'Custom offer templates'},
     {'icon': Icons.text_snippet, 'title': 'Briefs'},
     {'icon': Icons.share, 'title': 'Share Gigs'},
-    {'icon': Icons.person_outline, 'title': 'My profile'}, 
   ];
 
-  Widget _buildProfileOption({required IconData icon, required String title, required Color color}) {
-    // NOTE: For the Seller side, "My Profile" should probably navigate to a public profile view
+  Widget _buildProfileOption({
+    required IconData icon,
+    required String title,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(title, style: const TextStyle(fontSize: 16)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-      onTap: () {
-        // Here, you would navigate to the detailed mini-screen for each option
-        debugPrint('Tapped: $title');
-      },
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        size: 16,
+        color: Colors.grey,
+      ),
+      onTap:
+          onTap ??
+          () {
+            debugPrint('Tapped: $title');
+          },
     );
+  }
+
+  void _showEditProfileDialog() {
+    final firstNameController = TextEditingController(text: firstName);
+    final lastNameController = TextEditingController(text: lastName);
+    final addressController = TextEditingController(text: address);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: firstNameController,
+                decoration: const InputDecoration(
+                  labelText: 'First Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: lastNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Last Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(
+                  labelText: 'Address',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: TextEditingController(text: phoneNumber),
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number (Read-Only)',
+                  border: OutlineInputBorder(),
+                ),
+                enabled: false,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _updateProfile(
+                firstNameController.text,
+                lastNameController.text,
+                addressController.text,
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateProfile(
+    String newFirstName,
+    String newLastName,
+    String newAddress,
+  ) async {
+    try {
+      await _firestore.collection('users').doc(phoneDocId).update({
+        'firstName': newFirstName,
+        'lastName': newLastName,
+        'address': newAddress,
+      });
+
+      setState(() {
+        firstName = newFirstName;
+        lastName = newLastName;
+        address = newAddress;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
+    }
   }
 
   // --- Main Build Method ---
   @override
   Widget build(BuildContext context) {
-    // Determine which list of options to display based on the mode received
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final currentOptions = widget.isSellerMode ? _sellerOptions : _buyerOptions;
-    final primaryColor = widget.isSellerMode ? Colors.green.shade700 : const Color(0xFF2B7CD3); // Use app theme blue
+    final primaryColor = widget.isSellerMode
+        ? Colors.green.shade700
+        : const Color(0xFF2B7CD3);
     final headerText = widget.isSellerMode ? 'Selling' : 'My FixRight';
-    final Color optionColor = widget.isSellerMode ? Colors.green.shade700 : const Color(0xFF2B7CD3);
+    final Color optionColor = widget.isSellerMode
+        ? Colors.green.shade700
+        : const Color(0xFF2B7CD3);
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('My Profile'),
-            const Icon(Icons.notifications),
-          ],
+          children: [Text('My Profile'), Icon(Icons.notifications)],
         ),
       ),
       body: SingleChildScrollView(
@@ -77,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: double.infinity,
               height: 200,
               padding: const EdgeInsets.only(
-                top: 20, // Reduced top padding since AppBar is present
+                top: 20,
                 bottom: 10,
                 left: 16,
                 right: 16,
@@ -93,9 +242,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       // Stack for Avatar + Online Dot
                       Stack(
                         children: [
-                          const CircleAvatar(
-                            backgroundImage: AssetImage('assets/images/Ahp.png'),
-                            maxRadius: 35,
+                          CircleAvatar(
+                            radius: 35,
+                            backgroundColor: Colors.white,
+                            child: Text(
+                              firstName.isNotEmpty
+                                  ? firstName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                           // Online Status Dot
                           Positioned(
@@ -107,7 +265,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.greenAccent.shade400,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
                               ),
                             ),
                           ),
@@ -115,20 +276,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(width: 15),
                       // User Name and Balance
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Ayazengima',
-                            style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
+                            '$firstName $lastName'.trim(),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
-                          Text(
-                            'Personal balance: \$4',
-                            style: TextStyle(fontSize: 14, color: Colors.white70),
+                          const Text(
+                            'Personal balance: \$0',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white70,
+                            ),
                           ),
                         ],
                       ),
@@ -137,7 +302,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Spacer(),
                   // Seller Mode Switch Container
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
@@ -154,13 +322,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         const Text(
                           'Seller Mode',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         Switch(
                           value: widget.isSellerMode,
                           activeThumbColor: primaryColor,
                           onChanged: (bool newValue) {
-                            // Call the central function to change the entire application view
                             widget.onToggleMode(newValue);
                           },
                         ),
@@ -170,56 +340,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            
-            // 2. Dynamic Options List
+
+            // 2. "My Profile" Tile (Edit Form)
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0, left: 16, right: 16),
+              child: Text(
+                'Account',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            const Divider(height: 15),
+            _buildProfileOption(
+              icon: Icons.person,
+              title: 'My Profile',
+              color: optionColor,
+              onTap: _showEditProfileDialog,
+            ),
+
+            // 3. Dynamic Options List
             Padding(
               padding: const EdgeInsets.only(top: 20.0, left: 16, right: 16),
               child: Text(
                 headerText,
                 style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
             const Divider(height: 15),
-            
+
             // Generate the list of options
             ...currentOptions
-                .map((option) => _buildProfileOption(
+                .map(
+                  (option) => _buildProfileOption(
                     icon: option['icon'] as IconData,
                     title: option['title'] as String,
-                    color: optionColor))
-                ,
+                    color: optionColor,
+                  ),
+                )
+                .toList(),
 
-            // 3. General Settings (Visible in both modes)
+            // 4. General Settings (Visible in both modes)
             const Padding(
               padding: EdgeInsets.only(top: 20.0, left: 16, right: 16),
               child: Text(
                 'Settings',
                 style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
             const Divider(height: 15),
-            _buildProfileOption(icon: Icons.settings, title: 'Preferences', color: Colors.grey.shade700),
-            _buildProfileOption(icon: Icons.account_circle, title: 'Account', color: Colors.grey.shade700),
-            
+            _buildProfileOption(
+              icon: Icons.settings,
+              title: 'Preferences',
+              color: Colors.grey.shade700,
+            ),
+
             // Logout Button
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/'); // Navigate to Login
+                onPressed: () async {
+                  await _authService.signOut();
+                  Navigator.pushReplacementNamed(context, '/');
                 },
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                   backgroundColor: Colors.red,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                child: const Text('Logout', style: TextStyle(color: Colors.white, fontSize: 16)),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
               ),
             ),
             const SizedBox(height: 50),
