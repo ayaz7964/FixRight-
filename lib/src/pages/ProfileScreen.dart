@@ -384,7 +384,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: optionColor,
                   ),
                 )
-                .toList(),
+                ,
 
             // 4. General Settings (Visible in both modes)
             const Padding(

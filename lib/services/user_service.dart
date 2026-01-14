@@ -67,7 +67,7 @@ class UserService {
           .where(
             'firstName',
             isGreaterThanOrEqualTo: query,
-            isLessThan: query + 'z',
+            isLessThan: '${query}z',
           )
           .limit(10)
           .get();

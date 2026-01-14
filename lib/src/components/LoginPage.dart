@@ -33,21 +33,76 @@ class _LoginPageState extends State<LoginPage> {
     e164Key: '',
   );
 
+  // Future<void> _verifyPhone() async {
+  //   setState(() => isLoading = true);
+  //   await _auth.verifyPhoneNumber(
+  //     phoneNumber:
+  //         '+${selectedCountry.phoneCode}${_phoneController.text.trim()}',
+  //     verificationCompleted: (PhoneAuthCredential credential) async {
+  //       await _auth.signInWithCredential(credential);
+  //       _navigateToHome();
+  //     },
+  //     verificationFailed: (FirebaseAuthException e) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text(e.message ?? 'Error')),
+  //       ); // error throen here
+  //       setState(() => isLoading = false);
+  //     },
+  //     codeSent: (String verId, int? resendToken) {
+  //       setState(() {
+  //         verificationId = verId;
+  //         codeSent = true;
+  //         isLoading = false;
+  //       });
+  //     },
+  //     codeAutoRetrievalTimeout: (String verId) {
+  //       verificationId = verId;
+  //     },
+  //   );
+  // }
+
   Future<void> _verifyPhone() async {
-    setState(() => isLoading = true);
+  if (_phoneController.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Enter phone number")),
+    );
+    return;
+  }
+
+  setState(() => isLoading = true);
+
+  final phoneNumber =
+      '+${selectedCountry.phoneCode}${_phoneController.text.trim()}';
+
+  try {
     await _auth.verifyPhoneNumber(
-      phoneNumber:
-          '+${selectedCountry.phoneCode}${_phoneController.text.trim()}',
+      phoneNumber: phoneNumber,
+
+      timeout: const Duration(seconds: 60),
+
       verificationCompleted: (PhoneAuthCredential credential) async {
+        // Auto-verification (rare but possible)
         await _auth.signInWithCredential(credential);
-        _navigateToHome();
+        await _requestLocationAndNavigate();
       },
+
       verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Error')),
-        ); // error throen here
         setState(() => isLoading = false);
+
+        String message = 'Verification failed';
+
+        if (e.code == 'invalid-phone-number') {
+          message = 'Invalid phone number';
+        } else if (e.code == 'too-many-requests') {
+          message = 'Too many attempts. Try later.';
+        } else {
+          message = e.message ?? message;
+        }
+
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
       },
+
       codeSent: (String verId, int? resendToken) {
         setState(() {
           verificationId = verId;
@@ -55,28 +110,70 @@ class _LoginPageState extends State<LoginPage> {
           isLoading = false;
         });
       },
+
       codeAutoRetrievalTimeout: (String verId) {
         verificationId = verId;
       },
     );
+  } catch (e) {
+    setState(() => isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Something went wrong")),
+    );
   }
+}
+
+
+  // Future<void> _verifyOTP() async {
+  //   setState(() => isLoading = true);
+  //   try {
+  //     final credential = PhoneAuthProvider.credential(
+  //       verificationId: verificationId,
+  //       smsCode: _otpController.text.trim(),
+  //     );
+  //     await _auth.signInWithCredential(credential);
+  //     await _requestLocationAndNavigate();
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(
+  //       context,
+  //     ).showSnackBar(const SnackBar(content: Text('Invalid OTP')));
+  //     setState(() => isLoading = false);
+  //   }
+  // }
 
   Future<void> _verifyOTP() async {
-    setState(() => isLoading = true);
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: verificationId,
-        smsCode: _otpController.text.trim(),
-      );
-      await _auth.signInWithCredential(credential);
-      await _requestLocationAndNavigate();
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invalid OTP')));
-      setState(() => isLoading = false);
-    }
+  if (_otpController.text.trim().length != 6) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Enter 6 digit OTP")),
+    );
+    return;
   }
+
+  setState(() => isLoading = true);
+
+  try {
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: _otpController.text.trim(),
+    );
+
+    await _auth.signInWithCredential(credential);
+    await _requestLocationAndNavigate();
+  } on FirebaseAuthException catch (e) {
+    setState(() => isLoading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          e.code == 'invalid-verification-code'
+              ? 'Invalid OTP'
+              : 'Verification failed',
+        ),
+      ),
+    );
+  }
+}
+
 
   /// Request location permission after successful login and update user profile
   Future<void> _requestLocationAndNavigate() async {

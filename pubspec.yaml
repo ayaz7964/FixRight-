@@ -148,7 +148,9 @@ dependencies:
   shared_preferences: ^2.5.3
   intl: ^0.19.0
   intl_phone_field: ^3.2.0
-
+  get: ^4.6.6
+  pinput: ^3.0.1
+  
   # 🔹 Firebase
   firebase_core: ^4.2.0
   firebase_auth: ^6.1.1

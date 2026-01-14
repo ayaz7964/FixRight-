@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'MessageChatBotScreen.dart'; // Reuse chat screen
-import 'ProfileScreen.dart';        // Reuse profile screen
-import 'JobPostingScreen.dart';      // Reuse job posting/gig creation screen (for Post Services)
-import 'ManageOrdersScreen.dart';    // Orders management screen
+import 'ProfileScreen.dart'; // Reuse profile screen
+import 'JobPostingScreen.dart'; // Reuse job posting/gig creation screen (for Post Services)
+import 'ManageOrdersScreen.dart'; // Orders management screen
 import 'seller_dashboard_page.dart'; // Dashboard content
 
 class SellerMainScreen extends StatefulWidget {
@@ -25,7 +25,7 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
   int _selectedIndex = 0;
   // There are 4 visible items, so the 'Post Services' button (which is not a content page)
   // must sit between index 1 and index 2. Let's make it nav index 2.
-  final int _postGigIndex = 2; 
+  final int _postGigIndex = 2;
 
   late final List<Widget> _widgetOptions;
 
@@ -36,7 +36,7 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
     _widgetOptions = <Widget>[
       const SellerDashboardPage(), // 0. Dashboard (Home screen replacement)
       const MessageChatBotScreen(), // 1. Messages
-      const ManageOrdersScreen(),   // 2. Manage Orders/Gigs (Used as "Services")
+      const ManageOrdersScreen(), // 2. Manage Orders/Gigs (Used as "Services")
       ProfileScreen(
         isSellerMode: widget.isSellerMode,
         onToggleMode: widget.onToggleMode,
@@ -62,7 +62,9 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
 
   void _postGig(BuildContext context) {
     // Re-use JobPostingScreen for creating a new Gig/Service
-    Navigator.of(context).push(MaterialPageRoute(builder: (context) => const JobPostingScreen()));
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const JobPostingScreen()));
   }
 
   // --- Helper for Custom Nav Item Design ---
@@ -72,7 +74,8 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
 
     // Logic to map nav index to content index (used for selection highlight)
     int contentIndex = navIndex > _postGigIndex ? navIndex - 1 : navIndex;
-    bool isSelected = _selectedIndex == contentIndex && navIndex != _postGigIndex;
+    bool isSelected =
+        _selectedIndex == contentIndex && navIndex != _postGigIndex;
 
     // Center Post Services button styling
     if (navIndex == _postGigIndex) {
@@ -178,8 +181,11 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
             _buildNavItem(1, Icons.mail_outline, 'Messages'),
 
             // Tab 2: Post Gig (Center Action, No content screen)
-            _buildNavItem(_postGigIndex, Icons.add, 'Post Services'), // _postGigIndex = 2
-
+            _buildNavItem(
+              _postGigIndex,
+              Icons.add,
+              'Post Services',
+            ), // _postGigIndex = 2
             // Tab 3 (Content Index 2): Manage Services (Orders)
             _buildNavItem(3, Icons.assignment, 'Services'),
 
