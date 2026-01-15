@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:country_picker/country_picker.dart';
 import '../../services/auth_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geocoding/geocoding.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,6 +18,8 @@ class _LoginPageState extends State<LoginPage> {
   final AuthService _authService = AuthService();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
   bool codeSent = false;
   String verificationId = '';
   bool isLoading = false;
@@ -62,67 +66,67 @@ class _LoginPageState extends State<LoginPage> {
   // }
 
   Future<void> _verifyPhone() async {
-  if (_phoneController.text.trim().isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Enter phone number")),
-    );
-    return;
-  }
+    if (_phoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Enter phone number")));
+      return;
+    }
 
-  setState(() => isLoading = true);
+    setState(() => isLoading = true);
 
-  final phoneNumber =
-      '+${selectedCountry.phoneCode}${_phoneController.text.trim()}';
+    final phoneNumber =
+        '+${selectedCountry.phoneCode}${_phoneController.text.trim()}';
 
-  try {
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
 
-      timeout: const Duration(seconds: 60),
+        timeout: const Duration(seconds: 60),
 
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        // Auto-verification (rare but possible)
-        await _auth.signInWithCredential(credential);
-        await _requestLocationAndNavigate();
-      },
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Auto-verification (rare but possible)
+          await _auth.signInWithCredential(credential);
+          // await _requestLocationAndNavigate();
+        },
 
-      verificationFailed: (FirebaseAuthException e) {
-        setState(() => isLoading = false);
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() => isLoading = false);
 
-        String message = 'Verification failed';
+          String message = 'Verification failed';
 
-        if (e.code == 'invalid-phone-number') {
-          message = 'Invalid phone number';
-        } else if (e.code == 'too-many-requests') {
-          message = 'Too many attempts. Try later.';
-        } else {
-          message = e.message ?? message;
-        }
+          if (e.code == 'invalid-phone-number') {
+            message = 'Invalid phone number';
+          } else if (e.code == 'too-many-requests') {
+            message = 'Too many attempts. Try later.';
+          } else {
+            message = e.message ?? message;
+          }
 
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
-      },
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
+        },
 
-      codeSent: (String verId, int? resendToken) {
-        setState(() {
+        codeSent: (String verId, int? resendToken) {
+          setState(() {
+            verificationId = verId;
+            codeSent = true;
+            isLoading = false;
+          });
+        },
+
+        codeAutoRetrievalTimeout: (String verId) {
           verificationId = verId;
-          codeSent = true;
-          isLoading = false;
-        });
-      },
-
-      codeAutoRetrievalTimeout: (String verId) {
-        verificationId = verId;
-      },
-    );
-  } catch (e) {
-    setState(() => isLoading = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Something went wrong")),
-    );
+        },
+      );
+    } catch (e) {
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
+    }
   }
-}
-
 
   // Future<void> _verifyOTP() async {
   //   setState(() => isLoading = true);
@@ -141,78 +145,229 @@ class _LoginPageState extends State<LoginPage> {
   //   }
   // }
 
-  Future<void> _verifyOTP() async {
-  if (_otpController.text.trim().length != 6) {
+  void _test() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Enter 6 digit OTP")),
-    );
-    return;
-  }
-
-  setState(() => isLoading = true);
-
-  try {
-    final credential = PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: _otpController.text.trim(),
-    );
-
-    await _auth.signInWithCredential(credential);
-    await _requestLocationAndNavigate();
-  } on FirebaseAuthException catch (e) {
-    setState(() => isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          e.code == 'invalid-verification-code'
-              ? 'Invalid OTP'
-              : 'Verification failed',
-        ),
+      const SnackBar(
+        content: Text('Test file working fine'),
+        duration: Duration(seconds: 3),
       ),
     );
   }
-}
 
+  Future<void> checkUserAndNavigate() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
 
-  /// Request location permission after successful login and update user profile
-  Future<void> _requestLocationAndNavigate() async {
-    final phoneDocId = _authService.getUserPhoneDocId();
+      if (user == null || user.phoneNumber == null) {
+        throw Exception("User not authenticated");
+      }
 
-    if (phoneDocId == null) {
+      final String uid = user.phoneNumber!; // 📱 UID = verified phone number
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+
+      // ✅ User exists → LOGIN
+      if (doc.exists) {
+        // 🔴 Start live location tracking for existing user
+        _startLiveLocationTracking(uid);
+        _navigateToHome();
+        return;
+      }
+
+      // ❌ User does not exist → SIGNUP
+      await createNewUser(uid);
+    } catch (e) {
+      print('Error in checkUserAndNavigate: $e');
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  /// Start live location tracking for a user
+  void _startLiveLocationTracking(String uid) {
+    Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen((Position position) {
+      FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'liveLocation': {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+      });
+    });
+  }
+
+  Future<void> createNewUser(String uid) async {
+    String city = 'Unknown';
+    String country = 'Unknown';
+    double latitude = 0.0;
+    double longitude = 0.0;
+
+    try {
+      // 📍 Step 1: Ask location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      // 📍 Step 2: Get location if allowed
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        try {
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+
+          latitude = position.latitude;
+          longitude = position.longitude;
+
+          // Try to get city and country via geocoding
+          try {
+            List<Placemark> placemarks = await placemarkFromCoordinates(
+              position.latitude,
+              position.longitude,
+            );
+
+            if (placemarks.isNotEmpty) {
+              city = placemarks.first.locality ?? city;
+              country = placemarks.first.country ?? country;
+            }
+          } catch (e) {
+            // Geocoding failed (common on web), use defaults
+            print('Geocoding error: $e');
+          }
+
+          // 🔴 Step 3: Start live location tracking
+          _startLiveLocationTracking(uid);
+        } catch (e) {
+          print('Location error: $e');
+          // Location access failed, continue with dummy values
+        }
+      } else {
+        print('Location permission denied');
+      }
+
+      // 🧾 Step 4: Create Firestore user document
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'uid': uid,
+        'mobile': uid,
+        'firstName': 'User',
+        'lastName': 'Account',
+        'city': city,
+        'country': country,
+        'latitude': latitude,
+        'longitude': longitude,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 🚀 Navigate to Home
       _navigateToHome();
+    } catch (e) {
+      print('Error creating user: $e');
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _verifyOTP() async {
+    if (_otpController.text.trim().length != 6) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Enter 6 digit OTP")));
       return;
     }
 
+    setState(() => isLoading = true);
+
     try {
-      // Request location permission
-      final permission = await Geolocator.requestPermission();
+      final credential = PhoneAuthProvider.credential(
+        verificationId: verificationId,
+        smsCode: _otpController.text.trim(),
+      );
 
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        // Update user location in Firestore
-        await _authService.updateUserLocation(phoneDocId);
-      } else if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        // Show dialog explaining why location is needed
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Location access is needed for Live Tracking. You can enable it in settings.',
-              ),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
+      await _auth.signInWithCredential(credential);
+
+      // Check user and navigate (handles both login and signup)
+      if (mounted) {
+        await checkUserAndNavigate();
       }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
 
-      _navigateToHome();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.code == 'invalid-verification-code'
+                  ? 'Invalid OTP'
+                  : 'Verification failed: ${e.message}',
+            ),
+          ),
+        );
+      }
     } catch (e) {
-      print('Error requesting location: $e');
-      _navigateToHome();
+      if (mounted) {
+        setState(() => isLoading = false);
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
+
+  /// Request location permission after successful login and update user profile
+  // Future<void> _requestLocationAndNavigate() async {
+  //   final phoneDocId = _authService.getUserPhoneDocId();
+
+  //   if (phoneDocId == null) {
+  //     _navigateToHome();
+  //     return;
+  //   }
+
+  //   try {
+  //     // Request location permission
+  //     final permission = await Geolocator.requestPermission();
+
+  //     if (permission == LocationPermission.whileInUse ||
+  //         permission == LocationPermission.always) {
+  //       // Update user location in Firestore
+  //       await _authService.updateUserLocation(phoneDocId);
+  //     } else if (permission == LocationPermission.denied ||
+  //         permission == LocationPermission.deniedForever) {
+  //       // Show dialog explaining why location is needed
+  //       if (mounted) {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(
+  //             content: Text(
+  //               'Location access is needed for Live Tracking. You can enable it in settings.',
+  //             ),
+  //             duration: Duration(seconds: 3),
+  //           ),
+  //         );
+  //       }
+  //     }
+
+  //     _navigateToHome();
+  //   } catch (e) {
+  //     print('Error requesting location: $e');
+  //     _navigateToHome();
+  //   }
+  // }
 
   void _navigateToHome() {
     setState(() => isLoading = false);

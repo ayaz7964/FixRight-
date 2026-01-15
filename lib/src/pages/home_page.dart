@@ -36,21 +36,57 @@ class HomePageState extends State<HomePage> {
 
         if (userDoc != null) {
           final data = userDoc.data() as Map<String, dynamic>;
-          final firstName = data['firstName'] ?? '';
-          final addressString = data['address'] ?? '';
+          final firstName = data['firstName'] ?? 'User';
+
+          // Try to get location from multiple fields
+          String locationAddress = '';
+
+          // First try the combined "address" field (old format)
+          if (data['address'] != null &&
+              (data['address'] as String).isNotEmpty) {
+            locationAddress = data['address'];
+          }
+          // Then try city + country (new format from LoginPage)
+          else if ((data['city'] != null &&
+                  (data['city'] as String).isNotEmpty) ||
+              (data['country'] != null &&
+                  (data['country'] as String).isNotEmpty)) {
+            final city = data['city'] ?? '';
+            final country = data['country'] ?? '';
+            locationAddress =
+                '$city${city.isNotEmpty && country.isNotEmpty ? ', ' : ''}$country';
+          }
 
           setState(() {
             userFirstName = firstName.isNotEmpty ? firstName : 'User';
-            userLocationAddress = addressString.isNotEmpty
-                ? addressString
-                : 'Fetching location...';
+            userLocationAddress = locationAddress.isNotEmpty
+                ? locationAddress
+                : 'Location not available';
+            isLoadingLocation = false;
+          });
+        } else {
+          // User document doesn't exist, show default
+          setState(() {
+            userFirstName = 'User';
+            userLocationAddress = 'Location not available';
             isLoadingLocation = false;
           });
         }
+      } else {
+        // Not authenticated
+        setState(() {
+          userFirstName = 'User';
+          userLocationAddress = 'Not authenticated';
+          isLoadingLocation = false;
+        });
       }
     } catch (e) {
       print('Error loading user data: $e');
-      setState(() => isLoadingLocation = false);
+      setState(() {
+        userFirstName = 'User';
+        userLocationAddress = 'Error loading location';
+        isLoadingLocation = false;
+      });
     }
   }
 
