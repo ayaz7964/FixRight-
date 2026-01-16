@@ -27,8 +27,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late String phoneDocId;
   bool isLoading = true;
   final mobile = UserSession().phoneUID;
-  static final Future<String> role = user_data_helper.UserDataHelper.getUserRole(
-      UserSession().phoneUID ?? '');
+  static final Future<String> role =
+      user_data_helper.UserDataHelper.getUserRole(UserSession().phoneUID ?? '');
   // User profile data
   String firstName = '';
   String lastName = '';
@@ -51,7 +51,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserProfile() async {
     try {
       final userDoc = await _authService.getUserProfile(phoneDocId);
-
 
       if (userDoc != null) {
         final data = userDoc.data() as Map<String, dynamic>;
@@ -315,78 +314,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const Spacer(),
-                  Text('working correct'),
                   UserRole == 'Buyer'
-                      ? 
-                      
-                      Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          color: Colors.white,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                      ? Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Apply to become a Seller'),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 50),
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.shopping_bag,
-                                  color: primaryColor,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'You are in Client Mode',
-                                  style: TextStyle(
-                                    color: primaryColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                            child: const Text(
+                              'Became Seller',
+                              style: TextStyle(
+                                color: Color.fromARGB(255, 0, 0, 0),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        
                         )
                       :
-                  // Seller Mode Switch Container
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Seller Mode',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                        // Seller Mode Switch Container
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Seller Mode',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Switch(
+                                value: widget.isSellerMode,
+                                activeThumbColor: primaryColor,
+                                onChanged: (bool newValue) {
+                                  widget.onToggleMode(newValue);
+                                },
+                              ),
+                            ],
                           ),
                         ),
-                        Switch(
-                          value: widget.isSellerMode,
-                          activeThumbColor: primaryColor,
-                          onChanged: (bool newValue) {
-                            widget.onToggleMode(newValue);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
