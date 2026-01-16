@@ -7,9 +7,12 @@ import '../components/TrustBanners.dart';
 import '../components/LocalWorkerHighlight.dart';
 import '../components/TopOffersList.dart';
 import '../../services/auth_service.dart';
+import '../../services/user_session.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String? phoneUID;
+
+  const HomePage({super.key, this.phoneUID});
   @override
   State<HomePage> createState() => HomePageState();
 }
@@ -29,7 +32,11 @@ class HomePageState extends State<HomePage> {
 
   Future<void> _loadUserData() async {
     try {
-      final phoneDocId = _authService.getUserPhoneDocId();
+      // Use provided phoneUID or get from UserSession
+      final phoneDocId =
+          widget.phoneUID ??
+          UserSession().phoneUID ??
+          _authService.getUserPhoneDocId();
 
       if (phoneDocId != null) {
         final userDoc = await _authService.getUserProfile(phoneDocId);

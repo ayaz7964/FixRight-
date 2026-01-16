@@ -205,8 +205,6 @@
 //   );
 // }
 
-
-
 // lib/src/pages/ClientMainScreen.dart
 
 import 'package:flutter/material.dart';
@@ -214,17 +212,19 @@ import 'home_page.dart';
 import 'MessageChatBotScreen.dart';
 import 'orders_page.dart';
 import 'ProfileScreen.dart';
-import 'JobPostingScreen.dart'; 
+import 'JobPostingScreen.dart';
 
 class ClientMainScreen extends StatefulWidget {
   // NEW: Add parameters to receive mode state and callback
   final bool isSellerMode;
   final ValueChanged<bool> onToggleMode;
-  
+  final String phoneUID;
+
   const ClientMainScreen({
     super.key,
     required this.isSellerMode,
     required this.onToggleMode,
+    required this.phoneUID,
   });
 
   @override
@@ -234,7 +234,7 @@ class ClientMainScreen extends StatefulWidget {
 class _ClientMainScreenState extends State<ClientMainScreen> {
   int _selectedIndex = 0;
   final int _postJobIndex = 2;
-  
+
   // NOTE: _widgetOptions must be defined AFTER initState to access widget properties
   late final List<Widget> _widgetOptions;
 
@@ -243,12 +243,13 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
     super.initState();
     // Initialize _widgetOptions, passing the callback to ProfileScreen
     _widgetOptions = <Widget>[
-      const HomePage(),
-      const MessageChatBotScreen(),
-      const OrdersPage(),
+      HomePage(phoneUID: widget.phoneUID),
+      MessageChatBotScreen(phoneUID: widget.phoneUID),
+      OrdersPage(phoneUID: widget.phoneUID),
       ProfileScreen(
         isSellerMode: widget.isSellerMode,
         onToggleMode: widget.onToggleMode,
+        phoneUID: widget.phoneUID,
       ), // Profile screen is at content index 3
     ];
   }
@@ -269,7 +270,9 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   }
 
   void _postJob(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (context) => const JobPostingScreen()));
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const JobPostingScreen()));
   }
 
   // --- Helper for Custom Nav Item Design --- (remains the same)
@@ -282,7 +285,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
     int contentIndex = navIndex > _postJobIndex ? navIndex - 1 : navIndex;
     bool isSelected =
         _selectedIndex == contentIndex && navIndex != _postJobIndex;
-    
+
     // ... (rest of _buildNavItem logic remains the same) ...
 
     if (navIndex == _postJobIndex) {
@@ -391,7 +394,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
 
             // Tab 3 (Content Index 2): Orders
             _buildNavItem(3, Icons.assignment, 'Services'),
-            
+
             // Tab 4 (Content Index 3): Profile
             _buildNavItem(4, Icons.person, 'Profile'),
           ],

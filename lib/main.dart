@@ -5,6 +5,7 @@ import 'src/components/LoginPage.dart';
 import 'src/components/SIgnupPage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'src/pages/app_mode_switcher.dart';
+import 'services/user_session.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +54,18 @@ class FixRightApp extends StatelessWidget {
         '/home': (context) => const AppModeSwitcher(),
         '/signup': (context) => const SignupScreen(),
       },
+      navigatorObservers: [_RouteObserver()],
     );
+  }
+}
+
+/// Observer to track navigation and manage user session
+class _RouteObserver extends NavigatorObserver {
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    // Handle logout when navigating back to login
+    if (previousRoute?.settings.name == '/' && route.settings.name != '/') {
+      UserSession().clearSession();
+    }
   }
 }

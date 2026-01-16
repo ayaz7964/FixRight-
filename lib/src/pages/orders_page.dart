@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'order_detail_page.dart';
 
 class OrdersPage extends StatefulWidget {
-  const OrdersPage({super.key});
+  final String? phoneUID;
+
+  const OrdersPage({super.key, this.phoneUID});
 
   @override
   State<OrdersPage> createState() => _OrdersPageState();
@@ -23,7 +25,7 @@ class _OrdersPageState extends State<OrdersPage> {
       'date': 'Oct 10, 2025',
       'image': 'https://i.imgur.com/8Km9tLL.png',
       'description':
-          'Technician repaired the AC unit and refilled the gas. Cooling is now working perfectly.'
+          'Technician repaired the AC unit and refilled the gas. Cooling is now working perfectly.',
     },
     {
       'id': 'ORD1002',
@@ -34,7 +36,7 @@ class _OrdersPageState extends State<OrdersPage> {
       'date': 'Oct 22, 2025',
       'image': 'https://i.imgur.com/QCNbOAo.png',
       'description':
-          'The client reported water leakage in the kitchen. The plumber will visit tomorrow morning.'
+          'The client reported water leakage in the kitchen. The plumber will visit tomorrow morning.',
     },
     {
       'id': 'ORD1003',
@@ -45,7 +47,7 @@ class _OrdersPageState extends State<OrdersPage> {
       'date': 'Oct 23, 2025',
       'image': 'https://i.imgur.com/x3M7QyJ.png',
       'description':
-          'Car wash is currently being handled at the service center. Estimated completion in 30 minutes.'
+          'Car wash is currently being handled at the service center. Estimated completion in 30 minutes.',
     },
     {
       'id': 'ORD1004',
@@ -56,7 +58,7 @@ class _OrdersPageState extends State<OrdersPage> {
       'date': 'Oct 20, 2025',
       'image': 'https://i.imgur.com/Yy6zO7R.png',
       'description':
-          'New electrical wiring completed successfully with safety inspection and testing.'
+          'New electrical wiring completed successfully with safety inspection and testing.',
     },
     {
       'id': 'ORD1005',
@@ -67,7 +69,7 @@ class _OrdersPageState extends State<OrdersPage> {
       'date': 'Oct 12, 2025',
       'image': 'https://i.imgur.com/zYxDCQT.png',
       'description':
-          'Client cancelled due to schedule conflict. Partial payment refunded.'
+          'Client cancelled due to schedule conflict. Partial payment refunded.',
     },
   ];
 
@@ -76,14 +78,13 @@ class _OrdersPageState extends State<OrdersPage> {
     final filteredOrders = _orders.where((order) {
       final matchesFilter =
           _selectedFilter == 'All' || order['status'] == _selectedFilter;
-      final matchesSearch = order['title']
-              .toString()
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()) ||
-          order['client']
-              .toString()
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase());
+      final matchesSearch =
+          order['title'].toString().toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          ) ||
+          order['client'].toString().toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          );
       return matchesFilter && matchesSearch;
     }).toList();
 
@@ -106,11 +107,19 @@ class _OrdersPageState extends State<OrdersPage> {
                 dropdownColor: Colors.white,
                 items: const [
                   DropdownMenuItem(value: 'All', child: Text('All Orders')),
-                  DropdownMenuItem(value: 'Completed', child: Text('Completed')),
+                  DropdownMenuItem(
+                    value: 'Completed',
+                    child: Text('Completed'),
+                  ),
                   DropdownMenuItem(value: 'Pending', child: Text('Pending')),
                   DropdownMenuItem(
-                      value: 'In Progress', child: Text('In Progress')),
-                  DropdownMenuItem(value: 'Cancelled', child: Text('Cancelled')),
+                    value: 'In Progress',
+                    child: Text('In Progress'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Cancelled',
+                    child: Text('Cancelled'),
+                  ),
                 ],
                 onChanged: (value) {
                   setState(() => _selectedFilter = value!);
@@ -131,8 +140,10 @@ class _OrdersPageState extends State<OrdersPage> {
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 16,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: BorderSide.none,
@@ -193,22 +204,29 @@ class _OrdersPageState extends State<OrdersPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(order['title'],
-                                        style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black)),
+                                    Text(
+                                      order['title'],
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black,
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Text(
                                       "Client: ${order['client']}",
                                       style: const TextStyle(
-                                          fontSize: 13, color: Colors.black54),
+                                        fontSize: 13,
+                                        color: Colors.black54,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       order['date'],
                                       style: const TextStyle(
-                                          fontSize: 12, color: Colors.black45),
+                                        fontSize: 12,
+                                        color: Colors.black45,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -219,25 +237,30 @@ class _OrdersPageState extends State<OrdersPage> {
                                   Text(
                                     "\$${order['price']}",
                                     style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
+                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: _statusColor(order['status'])
-                                          .withOpacity(0.1),
+                                      color: _statusColor(
+                                        order['status'],
+                                      ).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
                                       order['status'],
                                       style: TextStyle(
-                                          color: _statusColor(order['status']),
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 12),
+                                        color: _statusColor(order['status']),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 ],

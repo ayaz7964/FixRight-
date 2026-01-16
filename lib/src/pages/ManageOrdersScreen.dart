@@ -23,7 +23,9 @@ class Order {
 }
 
 class ManageOrdersScreen extends StatelessWidget {
-  const ManageOrdersScreen({super.key});
+  final String? phoneUID;
+
+  const ManageOrdersScreen({super.key, this.phoneUID});
 
   final List<Order> orders = const [
     Order(
@@ -64,8 +66,9 @@ class ManageOrdersScreen extends StatelessWidget {
   Widget _buildOrderCard(BuildContext context, Order order) {
     return GestureDetector(
       onTap: () {
-        Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => OrderDetailsScreen(order: order)));
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => OrderDetailsScreen(order: order)),
+        );
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -114,8 +117,10 @@ class ManageOrdersScreen extends StatelessWidget {
                         order.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                            const TextStyle(fontSize: 14, color: Colors.black87),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
                       ),
                     ],
                   ),
@@ -141,8 +146,10 @@ class ManageOrdersScreen extends StatelessWidget {
                 ),
                 const Spacer(),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green.shade100,
                     borderRadius: BorderRadius.circular(20),
@@ -221,9 +228,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-              color: Colors.grey.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2))
+            color: Colors.grey.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Icon(icon, size: 18, color: Colors.black54),
@@ -236,13 +244,16 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       child: Row(
         children: [
           Expanded(
-              child: Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 15))),
+            child: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+          ),
           if (subtitle != null)
-            Text(subtitle,
-                style:
-                    const TextStyle(fontSize: 13, color: Colors.black54)),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 13, color: Colors.black54),
+            ),
         ],
       ),
     );
@@ -272,9 +283,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(order.sellerId,
-            style:
-                const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text(
+          order.sellerId,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black87),
           onPressed: () => Navigator.of(context).pop(),
@@ -312,41 +327,54 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(order.title,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(
+                            order.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-                          Text(order.description,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 13)),
+                          Text(
+                            order.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 5),
+                                  horizontal: 8,
+                                  vertical: 5,
+                                ),
                                 decoration: BoxDecoration(
-                                    color: Colors.green.shade100,
-                                    borderRadius: BorderRadius.circular(20)),
+                                  color: Colors.green.shade100,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
                                 child: Text(
                                   order.orderstatus.toUpperCase(),
                                   style: const TextStyle(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12),
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                               const Spacer(),
-                              Text('\$${order.price}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16)),
+                              Text(
+                                '\$${order.price}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                             ],
-                          )
+                          ),
                         ],
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -357,198 +385,269 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // left timeline column
-                  Column(
-                    children: [
-                      _timelineDot(Icons.check_box, color: Colors.white),
-                      Container(width: 2, height: 26, color: Colors.grey.shade300),
-                      _timelineDot(Icons.star_border),
-                      Container(width: 2, height: 26, color: Colors.grey.shade300),
-                      _timelineDot(Icons.person_outline),
-                      Container(width: 2, height: 26, color: Colors.grey.shade300),
-                      _timelineDot(Icons.calendar_today),
-                      Container(width: 2, height: 26, color: Colors.grey.shade300),
-                      _timelineDot(Icons.event_note),
-                    ],
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  // right detail column
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // left timeline column
+                    Column(
                       children: [
-                        // completed
-                        ExpansionTile(
-                          initiallyExpanded: _expanded['orderCompleted']!,
-                          onExpansionChanged: (v) =>
-                              setState(() => _expanded['orderCompleted'] = v),
-                          title: const Text('The order was completed',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: const Text(
-                              'You earned \$4 for this order. Great job, Ayazengima!'),
-                          children: [
-                            ListTile(
-                              leading: const Icon(Icons.info_outline),
-                              title: const Text('Order details'),
-                              subtitle:
-                                  const Text('Completed on Feb 19, 2024 • Delivered'),
-                            )
-                          ],
-                        ),
-
-                        // my review
-                        ExpansionTile(
-                          initiallyExpanded: _expanded['myReview']!,
-                          onExpansionChanged: (v) =>
-                              setState(() => _expanded['myReview'] = v),
-                          title: const Text('My review',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text('You haven\'t left a review yet.'),
-                                  SizedBox(height: 8),
-                                  Text('Rate the buyer and leave feedback.'),
-                                ],
-                              ),
-                            )
-                          ],
-                        ),
-
-                        // buyer review
-                        ExpansionTile(
-                          initiallyExpanded: _expanded['buyerReview']!,
-                          onExpansionChanged: (v) =>
-                              setState(() => _expanded['buyerReview'] = v),
-                          title: const Text('Buyer review',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          children: const [
-                            Padding(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              child: Text('Buyer left a 5-star review. Great communication'),
-                            )
-                          ],
-                        ),
-
-                        // delivered
-                        ExpansionTile(
-                          initiallyExpanded: _expanded['youDelivered']!,
-                          onExpansionChanged: (v) =>
-                              setState(() => _expanded['youDelivered'] = v),
-                          title: const Text('You delivered the order',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          children: const [
-                            Padding(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              child: Text('Delivered files attached below.'),
-                            )
-                          ],
-                        ),
-
-                        // delivery date
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Your delivery date was updated to 2/19/24'),
-                        ),
-
-                        // Order started (collapsible)
-                        ExpansionTile(
-                          initiallyExpanded: _expanded['orderStarted'] ?? false,
-                          title: const Text('Order started',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          children: const [
-                            Padding(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              child: Text('Order started on Feb 12, 2024'),
-                            )
-                          ],
-                        ),
-
-                        const Divider(),
-
-                        // Order Requirements submitted (big section)
-                        _buildSectionTitle('Order requirements submitted', subtitle: ''),
-                        const SizedBox(height: 8),
-
-                        // A list of typical Q/A fields like Fiverr
+                        _timelineDot(Icons.check_box, color: Colors.white),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 8),
-                          decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(8)),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('What is the purpose of your project?',
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              const Text('As we discuss',
-                                  style: TextStyle(color: Colors.black54)),
-                              const SizedBox(height: 10),
-                              const Text('Can you provide a detailed description of your project?',
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 6),
-                              _attachmentTile('Assignment 2.docx'),
-                              const SizedBox(height: 6),
-                              const Text('Who is your target audience or end-users?',
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              const Text('As we discuss',
-                                  style: TextStyle(color: Colors.black54)),
-                              const SizedBox(height: 10),
-                              const Text(
-                                  'Do you have any design preferences or examples in mind? Note create pdf file and attach images that clearly explain your ideas or design',
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 6),
-                              _attachmentTile('Design-Reference.pdf'),
-                              const SizedBox(height: 10),
-                              const Text('Any additional information you want to give',
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              const Text('As we discuss',
-                                  style: TextStyle(color: Colors.black54)),
-                              const SizedBox(height: 8),
-                            ],
-                          ),
+                          width: 2,
+                          height: 26,
+                          color: Colors.grey.shade300,
                         ),
-
-                        const SizedBox(height: 12),
-
-                        // Order created section
-                        ExpansionTile(
-                          initiallyExpanded: _expanded['orderCreated']!,
-                          onExpansionChanged: (v) =>
-                              setState(() => _expanded['orderCreated'] = v),
-                          title: const Text('Order created',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          children: const [
-                            Padding(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              child: Text('Order created on Feb 12, 2024 by Simmon07'),
-                            )
-                          ],
+                        _timelineDot(Icons.star_border),
+                        Container(
+                          width: 2,
+                          height: 26,
+                          color: Colors.grey.shade300,
                         ),
+                        _timelineDot(Icons.person_outline),
+                        Container(
+                          width: 2,
+                          height: 26,
+                          color: Colors.grey.shade300,
+                        ),
+                        _timelineDot(Icons.calendar_today),
+                        Container(
+                          width: 2,
+                          height: 26,
+                          color: Colors.grey.shade300,
+                        ),
+                        _timelineDot(Icons.event_note),
                       ],
                     ),
-                  )
-                ],
+
+                    const SizedBox(width: 12),
+
+                    // right detail column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // completed
+                          ExpansionTile(
+                            initiallyExpanded: _expanded['orderCompleted']!,
+                            onExpansionChanged: (v) =>
+                                setState(() => _expanded['orderCompleted'] = v),
+                            title: const Text(
+                              'The order was completed',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: const Text(
+                              'You earned \$4 for this order. Great job, Ayazengima!',
+                            ),
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.info_outline),
+                                title: const Text('Order details'),
+                                subtitle: const Text(
+                                  'Completed on Feb 19, 2024 • Delivered',
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // my review
+                          ExpansionTile(
+                            initiallyExpanded: _expanded['myReview']!,
+                            onExpansionChanged: (v) =>
+                                setState(() => _expanded['myReview'] = v),
+                            title: const Text(
+                              'My review',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text('You haven\'t left a review yet.'),
+                                    SizedBox(height: 8),
+                                    Text('Rate the buyer and leave feedback.'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // buyer review
+                          ExpansionTile(
+                            initiallyExpanded: _expanded['buyerReview']!,
+                            onExpansionChanged: (v) =>
+                                setState(() => _expanded['buyerReview'] = v),
+                            title: const Text(
+                              'Buyer review',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            children: const [
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                child: Text(
+                                  'Buyer left a 5-star review. Great communication',
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // delivered
+                          ExpansionTile(
+                            initiallyExpanded: _expanded['youDelivered']!,
+                            onExpansionChanged: (v) =>
+                                setState(() => _expanded['youDelivered'] = v),
+                            title: const Text(
+                              'You delivered the order',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            children: const [
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                child: Text('Delivered files attached below.'),
+                              ),
+                            ],
+                          ),
+
+                          // delivery date
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Your delivery date was updated to 2/19/24',
+                            ),
+                          ),
+
+                          // Order started (collapsible)
+                          ExpansionTile(
+                            initiallyExpanded:
+                                _expanded['orderStarted'] ?? false,
+                            title: const Text(
+                              'Order started',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            children: const [
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                child: Text('Order started on Feb 12, 2024'),
+                              ),
+                            ],
+                          ),
+
+                          const Divider(),
+
+                          // Order Requirements submitted (big section)
+                          _buildSectionTitle(
+                            'Order requirements submitted',
+                            subtitle: '',
+                          ),
+                          const SizedBox(height: 8),
+
+                          // A list of typical Q/A fields like Fiverr
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'What is the purpose of your project?',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'As we discuss',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Can you provide a detailed description of your project?',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 6),
+                                _attachmentTile('Assignment 2.docx'),
+                                const SizedBox(height: 6),
+                                const Text(
+                                  'Who is your target audience or end-users?',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'As we discuss',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Do you have any design preferences or examples in mind? Note create pdf file and attach images that clearly explain your ideas or design',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 6),
+                                _attachmentTile('Design-Reference.pdf'),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Any additional information you want to give',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'As we discuss',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Order created section
+                          ExpansionTile(
+                            initiallyExpanded: _expanded['orderCreated']!,
+                            onExpansionChanged: (v) =>
+                                setState(() => _expanded['orderCreated'] = v),
+                            title: const Text(
+                              'Order created',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            children: const [
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                child: Text(
+                                  'Order created on Feb 12, 2024 by Simmon07',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              )
-          
-          ],
+            ],
           ),
 
           // floating message bubble with avatar positioned bottom right
@@ -559,29 +658,39 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               onTap: () {
                 // Open chat
                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Open chat / message screen')));
+                  const SnackBar(content: Text('Open chat / message screen')),
+                );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6))
-                    ]),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const CircleAvatar(
                       radius: 18,
-                      backgroundImage: NetworkImage('https://i.imgur.com/Yy6zO7R.png'),
+                      backgroundImage: NetworkImage(
+                        'https://i.imgur.com/Yy6zO7R.png',
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    const Text('Message',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Message',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
               ),

@@ -10,11 +10,13 @@ import 'seller_dashboard_page.dart'; // Dashboard content
 class SellerMainScreen extends StatefulWidget {
   final bool isSellerMode;
   final ValueChanged<bool> onToggleMode;
+  final String phoneUID;
 
   const SellerMainScreen({
     super.key,
     required this.isSellerMode,
     required this.onToggleMode,
+    required this.phoneUID,
   });
 
   @override
@@ -34,12 +36,17 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
     super.initState();
     // Content screens for the Seller flow (Total 4 Screens: 0, 1, 2, 3)
     _widgetOptions = <Widget>[
-      const SellerDashboardPage(), // 0. Dashboard (Home screen replacement)
-      const MessageChatBotScreen(), // 1. Messages
-      const ManageOrdersScreen(), // 2. Manage Orders/Gigs (Used as "Services")
+      SellerDashboardPage(
+        phoneUID: widget.phoneUID,
+      ), // 0. Dashboard (Home screen replacement)
+      MessageChatBotScreen(phoneUID: widget.phoneUID), // 1. Messages
+      ManageOrdersScreen(
+        phoneUID: widget.phoneUID,
+      ), // 2. Manage Orders/Gigs (Used as "Services")
       ProfileScreen(
         isSellerMode: widget.isSellerMode,
         onToggleMode: widget.onToggleMode,
+        phoneUID: widget.phoneUID,
       ), // 3. Profile
     ];
   }

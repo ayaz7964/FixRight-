@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:country_picker/country_picker.dart';
 import '../../services/auth_service.dart';
+import '../../services/user_session.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geocoding/geocoding.dart';
@@ -164,6 +165,9 @@ class _LoginPageState extends State<LoginPage> {
 
       final String uid = user.phoneNumber!; // 📱 UID = verified phone number
 
+      // ✅ Store phone UID in UserSession for global access
+      UserSession().setPhoneUID(uid);
+
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -173,7 +177,7 @@ class _LoginPageState extends State<LoginPage> {
       if (doc.exists) {
         // 🔴 Start live location tracking for existing user
         _startLiveLocationTracking(uid);
-        _navigateToHome();
+        _navigateToHome(uid);
         return;
       }
 
@@ -207,7 +211,6 @@ class _LoginPageState extends State<LoginPage> {
       });
     });
   }
-
 
   Future<void> createNewUser(String uid) async {
     String city = 'Unknown City';
@@ -268,13 +271,14 @@ class _LoginPageState extends State<LoginPage> {
         'lastName': 'Account',
         'city': city,
         'country': country,
+        'Role': 'Buyer',
         'latitude': latitude,
         'longitude': longitude,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
       // 🚀 Navigate to Home
-      _navigateToHome();
+      _navigateToHome(uid);
     } catch (e) {
       print('Error creating user: $e');
       setState(() => isLoading = false);
@@ -370,7 +374,7 @@ class _LoginPageState extends State<LoginPage> {
   //   }
   // }
 
-  void _navigateToHome() {
+  void _navigateToHome(String uid) {
     setState(() => isLoading = false);
     Navigator.pushReplacementNamed(context, '/home');
   }

@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/user_session.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isSellerMode;
   final ValueChanged<bool> onToggleMode;
+  final String? phoneUID;
 
   const ProfileScreen({
     super.key,
     required this.isSellerMode,
     required this.onToggleMode,
+    this.phoneUID,
   });
 
   @override
@@ -32,7 +35,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    phoneDocId = _authService.getUserPhoneDocId() ?? '';
+    // Use provided phoneUID or get from UserSession or AuthService
+    phoneDocId =
+        widget.phoneUID ??
+        UserSession().phoneUID ??
+        _authService.getUserPhoneDocId() ??
+        '';
     _loadUserProfile();
   }
 
@@ -376,15 +384,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Divider(height: 15),
 
             // Generate the list of options
-            ...currentOptions
-                .map(
-                  (option) => _buildProfileOption(
-                    icon: option['icon'] as IconData,
-                    title: option['title'] as String,
-                    color: optionColor,
-                  ),
-                )
-                ,
+            ...currentOptions.map(
+              (option) => _buildProfileOption(
+                icon: option['icon'] as IconData,
+                title: option['title'] as String,
+                color: optionColor,
+              ),
+            ),
 
             // 4. General Settings (Visible in both modes)
             const Padding(
