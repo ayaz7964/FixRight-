@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
+import '../../services/user_data_helper.dart' as user_data_helper;
 
 class ProfileScreen extends StatefulWidget {
   final bool isSellerMode;
@@ -25,12 +26,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late String phoneDocId;
   bool isLoading = true;
-
+  final mobile = UserSession().phoneUID;
+  static final Future<String> role = user_data_helper.UserDataHelper.getUserRole(
+      UserSession().phoneUID ?? '');
   // User profile data
   String firstName = '';
   String lastName = '';
   String address = '';
   String phoneNumber = '';
+  String UserRole = 'Buyer';
 
   @override
   void initState() {
@@ -48,6 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final userDoc = await _authService.getUserProfile(phoneDocId);
 
+
       if (userDoc != null) {
         final data = userDoc.data() as Map<String, dynamic>;
         setState(() {
@@ -55,6 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           lastName = data['lastName'] ?? '';
           address = data['address'] ?? '';
           phoneNumber = data['phoneNumber'] ?? '';
+          UserRole = data['Role'] ?? '';
           isLoading = false;
         });
       } else {
@@ -104,10 +110,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showEditProfileDialog() {
+  void _showEditProfileDialog(phoneDocId) {
     final firstNameController = TextEditingController(text: firstName);
     final lastNameController = TextEditingController(text: lastName);
     final addressController = TextEditingController(text: address);
+    final phoneNumberController = TextEditingController(text: mobile);
 
     showDialog(
       context: context,
@@ -143,9 +150,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: TextEditingController(text: phoneNumber),
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number (Read-Only)',
+                controller: phoneNumberController,
+                decoration: InputDecoration(
+                  labelText: mobile ?? '',
                   border: OutlineInputBorder(),
                 ),
                 enabled: false,
@@ -308,6 +315,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const Spacer(),
+                  Text('working correct'),
+                  UserRole == 'Buyer'
+                      ? 
+                      
+                      Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          color: Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.shopping_bag,
+                                  color: primaryColor,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'You are in Client Mode',
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        
+                        )
+                      :
                   // Seller Mode Switch Container
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -366,7 +408,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: Icons.person,
               title: 'My Profile',
               color: optionColor,
-              onTap: _showEditProfileDialog,
+              onTap: () => _showEditProfileDialog(phoneDocId),
             ),
 
             // 3. Dynamic Options List

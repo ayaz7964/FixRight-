@@ -6,6 +6,7 @@ import '../../services/user_session.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:pinput/pinput.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -37,34 +38,6 @@ class _LoginPageState extends State<LoginPage> {
     displayNameNoCountryCode: 'Pakistan',
     e164Key: '',
   );
-
-  // Future<void> _verifyPhone() async {
-  //   setState(() => isLoading = true);
-  //   await _auth.verifyPhoneNumber(
-  //     phoneNumber:
-  //         '+${selectedCountry.phoneCode}${_phoneController.text.trim()}',
-  //     verificationCompleted: (PhoneAuthCredential credential) async {
-  //       await _auth.signInWithCredential(credential);
-  //       _navigateToHome();
-  //     },
-  //     verificationFailed: (FirebaseAuthException e) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text(e.message ?? 'Error')),
-  //       ); // error throen here
-  //       setState(() => isLoading = false);
-  //     },
-  //     codeSent: (String verId, int? resendToken) {
-  //       setState(() {
-  //         verificationId = verId;
-  //         codeSent = true;
-  //         isLoading = false;
-  //       });
-  //     },
-  //     codeAutoRetrievalTimeout: (String verId) {
-  //       verificationId = verId;
-  //     },
-  //   );
-  // }
 
   Future<void> _verifyPhone() async {
     if (_phoneController.text.trim().isEmpty) {
@@ -128,23 +101,6 @@ class _LoginPageState extends State<LoginPage> {
       ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
     }
   }
-
-  // Future<void> _verifyOTP() async {
-  //   setState(() => isLoading = true);
-  //   try {
-  //     final credential = PhoneAuthProvider.credential(
-  //       verificationId: verificationId,
-  //       smsCode: _otpController.text.trim(),
-  //     );
-  //     await _auth.signInWithCredential(credential);
-  //     await _requestLocationAndNavigate();
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(
-  //       context,
-  //     ).showSnackBar(const SnackBar(content: Text('Invalid OTP')));
-  //     setState(() => isLoading = false);
-  //   }
-  // }
 
   void _test() {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -536,16 +492,45 @@ class _LoginPageState extends State<LoginPage> {
                         if (codeSent)
                           Column(
                             children: [
-                              TextField(
+                              // TextField(
+                              //   controller: _otpController,
+                              //   keyboardType: TextInputType.number,
+                              //   decoration: InputDecoration(
+                              //     labelText: 'Enter OTP',
+                              //     prefixIcon: const Icon(Icons.lock),
+                              //     border: OutlineInputBorder(
+                              //       borderRadius: BorderRadius.circular(15),
+                              //     ),
+                              //   ),
+                              // ),
+                              Pinput(
+                                length: 6,
                                 controller: _otpController,
                                 keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                  labelText: 'Enter OTP',
-                                  prefixIcon: const Icon(Icons.lock),
-                                  border: OutlineInputBorder(
+                                defaultPinTheme: PinTheme(
+                                  width: 55,
+                                  height: 55,
+                                  textStyle: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(15),
+                                    border: Border.all(color: Colors.grey),
                                   ),
                                 ),
+                                focusedPinTheme: PinTheme(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(15),
+                                    border: Border.all(
+                                      color: Colors.blue,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                onCompleted: (pin) {
+                                  print('OTP Entered: $pin');
+                                },
                               ),
                               const SizedBox(height: 25),
                               ElevatedButton(
