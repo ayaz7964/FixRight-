@@ -208,9 +208,10 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+
   Future<void> createNewUser(String uid) async {
-    String city = 'Unknown';
-    String country = 'Unknown';
+    String city = 'Unknown City';
+    String country = 'Unknown country';
     double latitude = 0.0;
     double longitude = 0.0;
 
