@@ -163,6 +163,7 @@ dependencies:
   # 🔹 Location & Maps
   geolocator: ^10.1.0
   geocoding: ^3.0.0
+  url_launcher: ^6.2.0
 
   # 🔹 Media & Image Handling
   image_picker: ^1.2.0

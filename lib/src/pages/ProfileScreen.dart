@@ -3,7 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
-import '../../services/user_data_helper.dart' as user_data_helper;
+import '../../services/user_data_helper.dart';
+import '../../services/location_service.dart';
+import 'LocationMapScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isSellerMode;
@@ -27,14 +29,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late String phoneDocId;
   bool isLoading = true;
   final mobile = UserSession().phoneUID;
-  static final Future<String> role =
-      user_data_helper.UserDataHelper.getUserRole(UserSession().phoneUID ?? '');
+  final UserDataHelper _userDataHelper = UserDataHelper();
+
+  UserDataHelper userDataHelper = UserDataHelper();
+
   // User profile data
   String firstName = '';
   String lastName = '';
   String address = '';
   String phoneNumber = '';
   String UserRole = 'Buyer';
+  double longitude = 0;
+  double latitude = 0;
+  String city = '';
+  String country = '';
+  String fullAddress = '';
 
   @override
   void initState() {
@@ -54,12 +63,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (userDoc != null) {
         final data = userDoc.data() as Map<String, dynamic>;
+
+        final lat = (data['latitude'] ?? 0).toDouble();
+        final lng = (data['longitude'] ?? 0).toDouble();
+
+        // Load address details from coordinates using LocationService
+        String loadedCity = data['city'] ?? '';
+        String loadedCountry = data['country'] ?? '';
+        String loadedAddress = data['address'] ?? '';
+
+        if (lat != 0 && lng != 0) {
+          try {
+            final locationDetails =
+                await LocationService.getAddressFromCoordinates(lat, lng);
+            loadedCity = locationDetails['city'] ?? loadedCity;
+            loadedCountry = locationDetails['country'] ?? loadedCountry;
+            loadedAddress = LocationService.formatAddress(locationDetails);
+          } catch (e) {
+            print('Error getting location details: $e');
+          }
+        }
+
         setState(() {
           firstName = data['firstName'] ?? '';
           lastName = data['lastName'] ?? '';
-          address = data['address'] ?? '';
+          address = loadedAddress;
           phoneNumber = data['phoneNumber'] ?? '';
           UserRole = data['Role'] ?? '';
+          longitude = lng;
+          latitude = lat;
+          city = loadedCity;
+          country = loadedCountry;
+          fullAddress = loadedAddress;
           isLoading = false;
         });
       } else {
@@ -318,12 +353,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ? Padding(
                           padding: const EdgeInsets.all(12.0),
                           child: ElevatedButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Apply to become a Seller'),
-                                ),
-                              );
+                            onPressed: () async {
+                              if (latitude != 0 && longitude != 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'City: $city, Country: $country\n'
+                                      'Coordinates: $latitude, $longitude',
+                                    ),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Location not available'),
+                                  ),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size(double.infinity, 50),
@@ -403,6 +450,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: optionColor,
               onTap: () => _showEditProfileDialog(phoneDocId),
             ),
+
+            // 2B. Location Info Card
+            if (latitude != 0 && longitude != 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, color: optionColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Your Location',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: optionColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$city, $country',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (fullAddress.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              fullAddress,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => LocationMapScreen(
+                                    latitude: latitude,
+                                    longitude: longitude,
+                                    userName: '$firstName $lastName'.trim(),
+                                    userRole: UserRole.toLowerCase(),
+                                    address: fullAddress,
+                                    phoneUID: phoneDocId,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.map),
+                            label: const Text('View on Map'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: optionColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
 
             // 3. Dynamic Options List
             Padding(

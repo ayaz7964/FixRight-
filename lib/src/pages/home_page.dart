@@ -8,6 +8,7 @@ import '../components/LocalWorkerHighlight.dart';
 import '../components/TopOffersList.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
+import 'SellerDirectoryScreen.dart';
 
 class HomePage extends StatefulWidget {
   final String? phoneUID;
@@ -149,8 +150,12 @@ class HomePageState extends State<HomePage> {
             ),
             IconButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Location: $userLocationAddress")),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        SellerDirectoryScreen(phoneUID: widget.phoneUID),
+                  ),
                 );
               },
               icon: const Icon(Icons.location_on_outlined),

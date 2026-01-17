@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import 'user_session.dart';
+import 'location_service.dart';
+import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 
 /// Utility helper class for accessing user data using phone UID
 class UserDataHelper {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
 
   /// Get the current user's phone UID
   static String? getCurrentPhoneUID() {
@@ -188,5 +191,31 @@ class UserDataHelper {
   /// Logout current user (clears session)
   static void logout() {
     UserSession().clearSession();
+  }
+
+  static Future<Map<String, String>> getCityCountry(
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        latitude,
+        longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        return {
+          'city':
+              placemarks.first.locality ??
+              placemarks.first.subAdministrativeArea ??
+              'Unknown City',
+          'country': placemarks.first.country ?? 'Unknown Country',
+        };
+      }
+    } catch (e) {
+      debugPrint('Reverse geocoding failed: $e');
+    }
+
+    return {'city': 'Unknown City', 'country': 'Unknown Country'};
   }
 }

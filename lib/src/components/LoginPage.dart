@@ -150,99 +150,194 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  /// Start live location tracking for a user
-  void _startLiveLocationTracking(String uid) {
-    Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
-    ).listen((Position position) {
-      FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'liveLocation': {
-          'lat': position.latitude,
-          'lng': position.longitude,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      });
-    });
-  }
+  Future<Map<String, String>> getCityCountry(
+    double latitude, double longitude) async {
+  try {
+    List<Placemark> placemarks =
+        await placemarkFromCoordinates(latitude, longitude);
 
-  Future<void> createNewUser(String uid) async {
-    String city = 'Unknown City';
-    String country = 'Unknown country';
-    double latitude = 0.0;
-    double longitude = 0.0;
-
-    try {
-      // 📍 Step 1: Ask location permission
-      LocationPermission permission = await Geolocator.checkPermission();
-
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      // 📍 Step 2: Get location if allowed
-      if (permission == LocationPermission.always ||
-          permission == LocationPermission.whileInUse) {
-        try {
-          Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-          );
-
-          latitude = position.latitude;
-          longitude = position.longitude;
-
-          // Try to get city and country via geocoding
-          try {
-            List<Placemark> placemarks = await placemarkFromCoordinates(
-              position.latitude,
-              position.longitude,
-            );
-
-            if (placemarks.isNotEmpty) {
-              city = placemarks.first.locality ?? city;
-              country = placemarks.first.country ?? country;
-            }
-          } catch (e) {
-            // Geocoding failed (common on web), use defaults
-            print('Geocoding error: $e');
-          }
-
-          // 🔴 Step 3: Start live location tracking
-          _startLiveLocationTracking(uid);
-        } catch (e) {
-          print('Location error: $e');
-          // Location access failed, continue with dummy values
-        }
-      } else {
-        print('Location permission denied');
-      }
-
-      // 🧾 Step 4: Create Firestore user document
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'uid': uid,
-        'mobile': uid,
-        'firstName': 'User',
-        'lastName': 'Account',
-        'city': city,
-        'country': country,
-        'Role': 'Buyer',
-        'latitude': latitude,
-        'longitude': longitude,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // 🚀 Navigate to Home
-      _navigateToHome(uid);
-    } catch (e) {
-      print('Error creating user: $e');
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    if (placemarks.isNotEmpty) {
+      return {
+        'city': placemarks.first.locality ??
+            placemarks.first.subAdministrativeArea ??
+            'Unknown City',
+        'country': placemarks.first.country ?? 'Unknown Country',
+      };
     }
+  } catch (e) {
+    debugPrint('Reverse geocoding failed: $e');
   }
+
+  return {
+    'city': 'Unknown City',
+    'country': 'Unknown Country',
+  };
+}
+
+
+Future<void> createNewUser(String uid) async {
+  double latitude = 0.0;
+  double longitude = 0.0;
+  String city = 'Unknown City';
+  String country = 'Unknown Country';
+
+  try {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      latitude = position.latitude;
+      longitude = position.longitude;
+
+      /// 🔁 Reverse Geocoding
+      final locationData = await getCityCountry(latitude, longitude);
+      city = locationData['city']!;
+      country = locationData['country']!;
+
+      /// 🔴 Start live tracking
+      _startLiveLocationTracking(uid);
+    }
+
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'uid': uid,
+      'mobile': uid,
+      'firstName': 'User',
+      'lastName': 'Account',
+      'city': city,
+      'country': country,
+      'Role': 'Buyer',
+      'latitude': latitude,
+      'longitude': longitude,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    _navigateToHome(uid);
+  } catch (e) {
+    debugPrint('Error creating user: $e');
+  }
+}
+
+
+void _startLiveLocationTracking(String uid) {
+  Geolocator.getPositionStream(
+    locationSettings: const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10,
+    ),
+  ).listen((Position position) {
+    FirebaseFirestore.instance.collection('users').doc(uid).update({
+      'liveLocation': {
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    });
+  });
+}
+
+
+  // /// Start live location tracking for a user
+  // void _startLiveLocationTracking(String uid) {
+  //   Geolocator.getPositionStream(
+  //     locationSettings: const LocationSettings(
+  //       accuracy: LocationAccuracy.high,
+  //       distanceFilter: 10,
+  //     ),
+  //   ).listen((Position position) {
+  //     FirebaseFirestore.instance.collection('users').doc(uid).update({
+  //       'liveLocation': {
+  //         'lat': position.latitude,
+  //         'lng': position.longitude,
+  //         'updatedAt': FieldValue.serverTimestamp(),
+  //       },
+  //     });
+  //   });
+  // }
+
+  // Future<void> createNewUser(String uid) async {
+  //   String city = 'Unknown City';
+  //   String country = 'Unknown country';
+  //   double latitude = 0.0;
+  //   double longitude = 0.0;
+
+  //   try {
+  //     // 📍 Step 1: Ask location permission
+  //     LocationPermission permission = await Geolocator.checkPermission();
+
+  //     if (permission == LocationPermission.denied) {
+  //       permission = await Geolocator.requestPermission();
+  //     }
+
+  //     // 📍 Step 2: Get location if allowed
+  //     if (permission == LocationPermission.always ||
+  //         permission == LocationPermission.whileInUse) {
+  //       try {
+  //         Position position = await Geolocator.getCurrentPosition(
+  //           desiredAccuracy: LocationAccuracy.high,
+  //         );
+
+  //         latitude = position.latitude;
+  //         longitude = position.longitude;
+
+  //         // Try to get city and country via geocoding
+  //         try {
+  //           List<Placemark> placemarks = await placemarkFromCoordinates(
+  //             position.latitude,
+  //             position.longitude,
+  //           );
+
+  //           if (placemarks.isNotEmpty) {
+  //             city = placemarks.first.locality ?? city;
+  //             country = placemarks.first.country ?? country;
+  //           }
+  //         } catch (e) {
+  //           // Geocoding failed (common on web), use defaults
+  //           print('Geocoding error: $e');
+  //         }
+
+  //         // 🔴 Step 3: Start live location tracking
+  //         _startLiveLocationTracking(uid);
+  //       } catch (e) {
+  //         print('Location error: $e');
+  //         // Location access failed, continue with dummy values
+  //       }
+  //     } else {
+  //       print('Location permission denied');
+  //     }
+
+  //     // 🧾 Step 4: Create Firestore user document
+  //     await FirebaseFirestore.instance.collection('users').doc(uid).set({
+  //       'uid': uid,
+  //       'mobile': uid,
+  //       'firstName': 'User',
+  //       'lastName': 'Account',
+  //       'city': city,
+  //       'country': country,
+  //       'Role': 'Buyer',
+  //       'latitude': latitude,
+  //       'longitude': longitude,
+  //       'createdAt': FieldValue.serverTimestamp(),
+  //     });
+
+  //     // 🚀 Navigate to Home
+  //     _navigateToHome(uid);
+  //   } catch (e) {
+  //     print('Error creating user: $e');
+  //     setState(() => isLoading = false);
+  //     ScaffoldMessenger.of(
+  //       context,
+  //     ).showSnackBar(SnackBar(content: Text('Error: $e')));
+  //   }
+  // }
 
   Future<void> _verifyOTP() async {
     if (_otpController.text.trim().length != 6) {
