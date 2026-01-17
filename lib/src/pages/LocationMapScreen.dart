@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../services/location_service.dart';
 
 /// Professional location map display screen
@@ -10,6 +12,8 @@ class LocationMapScreen extends StatefulWidget {
   final String userRole;
   final String address;
   final String phoneUID;
+  final double? buyerLatitude;
+  final double? buyerLongitude;
 
   const LocationMapScreen({
     super.key,
@@ -19,6 +23,8 @@ class LocationMapScreen extends StatefulWidget {
     required this.userRole,
     required this.address,
     required this.phoneUID,
+    this.buyerLatitude,
+    this.buyerLongitude,
   });
 
   @override
@@ -28,6 +34,9 @@ class LocationMapScreen extends StatefulWidget {
 class _LocationMapScreenState extends State<LocationMapScreen> {
   late Future<Map<String, String>> _locationDetailsFuture;
   String googleMapsUrl = '';
+  final Completer<GoogleMapController> _mapController = Completer();
+  late CameraPosition _initialCamera;
+  final Set<Marker> _markers = {};
 
   @override
   void initState() {
@@ -37,11 +46,39 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
       widget.longitude,
     );
     _buildGoogleMapsUrl();
+    _initialCamera = CameraPosition(
+      target: LatLng(widget.latitude, widget.longitude),
+      zoom: 15,
+    );
+    _markers.add(
+      Marker(
+        markerId: const MarkerId('seller'),
+        position: LatLng(widget.latitude, widget.longitude),
+        infoWindow: InfoWindow(title: widget.userName),
+      ),
+    );
+    if (widget.buyerLatitude != null && widget.buyerLongitude != null) {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('buyer'),
+          position: LatLng(widget.buyerLatitude!, widget.buyerLongitude!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
+          infoWindow: const InfoWindow(title: 'Your location'),
+        ),
+      );
+    }
   }
 
   void _buildGoogleMapsUrl() {
-    googleMapsUrl =
-        'https://maps.google.com/?q=${widget.latitude},${widget.longitude}';
+    if (widget.buyerLatitude != null && widget.buyerLongitude != null) {
+      googleMapsUrl =
+          'https://www.google.com/maps/dir/?api=1&origin=${widget.buyerLatitude},${widget.buyerLongitude}&destination=${widget.latitude},${widget.longitude}&travelmode=driving';
+    } else {
+      googleMapsUrl =
+          'https://maps.google.com/?q=${widget.latitude},${widget.longitude}';
+    }
   }
 
   Future<void> _openGoogleMaps() async {
@@ -62,17 +99,20 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
       await launchUrl(Uri.parse(appleUrl));
     } catch (e) {
       print('Error opening Apple Maps: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Apple Maps not available')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Apple Maps not available')));
     }
   }
 
   void _copyCoordinates() {
     final coordinates = '${widget.latitude}, ${widget.longitude}';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Copied: $coordinates')),
-    );
+    final both = widget.buyerLatitude != null
+        ? 'Buyer: ${widget.buyerLatitude}, ${widget.buyerLongitude}\nSeller: $coordinates'
+        : 'Seller: $coordinates';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Copied:\n$both')));
   }
 
   @override
@@ -104,36 +144,17 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Static Google Maps Image
-                      Image.network(
-                        'https://maps.googleapis.com/maps/api/staticmap'
-                        '?center=${widget.latitude},${widget.longitude}'
-                        '&zoom=15'
-                        '&size=600x300'
-                        '&markers=color:blue%7C${widget.latitude},${widget.longitude}'
-                        '&key=AIzaSyDummy123', // Replace with your API key
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 64,
-                                  color: Colors.blue.shade600,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '${widget.latitude}, ${widget.longitude}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
+                      // Embedded Google Map
+                      GoogleMap(
+                        initialCameraPosition: _initialCamera,
+                        markers: _markers,
+                        myLocationEnabled: widget.buyerLatitude != null,
+                        myLocationButtonEnabled: true,
+                        zoomControlsEnabled: true,
+                        onMapCreated: (GoogleMapController controller) {
+                          if (!_mapController.isCompleted) {
+                            _mapController.complete(controller);
+                          }
                         },
                       ),
                     ],
@@ -315,11 +336,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          color: const Color(0xFF2B7CD3),
-          size: 20,
-        ),
+        Icon(icon, color: const Color(0xFF2B7CD3), size: 20),
         const SizedBox(width: 12),
         Expanded(
           child: Column(

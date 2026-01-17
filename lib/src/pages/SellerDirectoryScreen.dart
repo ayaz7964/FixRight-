@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 import '../../services/location_service.dart';
 import '../../services/user_session.dart';
 import 'LocationMapScreen.dart';
@@ -8,10 +10,7 @@ import 'LocationMapScreen.dart';
 class SellerDirectoryScreen extends StatefulWidget {
   final String? phoneUID;
 
-  const SellerDirectoryScreen({
-    super.key,
-    this.phoneUID,
-  });
+  const SellerDirectoryScreen({super.key, this.phoneUID});
 
   @override
   State<SellerDirectoryScreen> createState() => _SellerDirectoryScreenState();
@@ -53,6 +52,9 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
 
       // Fetch sellers
       await _fetchSellers();
+
+      // Start listening to live location updates
+      _startPositionStream();
     } catch (e) {
       print('Error initializing data: $e');
       setState(() {
@@ -60,6 +62,66 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
         loadingError = 'Error loading sellers: $e';
       });
     }
+  }
+
+  StreamSubscription<Position>? _positionSub;
+
+  void _startPositionStream() {
+    // If already subscribed or location permission not granted, skip
+    if (_positionSub != null) return;
+
+    _positionSub = LocationService.getPositionStream(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 8,
+    ).listen((pos) async {
+      if (pos == null) return;
+
+      final newLat = pos.latitude;
+      final newLng = pos.longitude;
+
+      // Only update when changed meaningfully
+      final changed = buyerLat == null || buyerLng == null ||
+          (buyerLat! - newLat).abs() > 0.00005 ||
+          (buyerLng! - newLng).abs() > 0.00005;
+
+      if (!changed) return;
+
+      setState(() {
+        buyerLat = newLat;
+        buyerLng = newLng;
+      });
+
+      // Recalculate distances for sellers in background
+      final updated = <Map<String, dynamic>>[];
+      for (var s in sellers) {
+        final lat = (s['latitude'] ?? 0).toDouble();
+        final lng = (s['longitude'] ?? 0).toDouble();
+        double dist = s['distance'] ?? 999999.0;
+        if (lat != 0 && lng != 0) {
+          try {
+            dist = await LocationService.calculateDistance(
+              newLat,
+              newLng,
+              lat,
+              lng,
+            );
+          } catch (e) {
+            // ignore
+          }
+        }
+        updated.add({...s, 'distance': dist});
+      }
+
+      // Sort and update state
+      updated.sort((a, b) => a['distance'].compareTo(b['distance']));
+      setState(() => sellers = updated);
+    });
+  }
+
+  @override
+  void dispose() {
+    _positionSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchSellers() async {
@@ -132,16 +194,16 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
     if (searchQuery.isEmpty) return sellers;
 
     return sellers
-        .where((seller) =>
-            seller['firstName']
-                .toLowerCase()
-                .contains(searchQuery.toLowerCase()) ||
-            seller['lastName']
-                .toLowerCase()
-                .contains(searchQuery.toLowerCase()) ||
-            seller['city']
-                .toLowerCase()
-                .contains(searchQuery.toLowerCase()))
+        .where(
+          (seller) =>
+              seller['firstName'].toLowerCase().contains(
+                searchQuery.toLowerCase(),
+              ) ||
+              seller['lastName'].toLowerCase().contains(
+                searchQuery.toLowerCase(),
+              ) ||
+              seller['city'].toLowerCase().contains(searchQuery.toLowerCase()),
+        )
         .toList();
   }
 
@@ -166,104 +228,99 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
               ),
             )
           : loadingError != null && sellers.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: Colors.red.shade300,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        loadingError!,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            isLoading = true;
-                            loadingError = null;
-                          });
-                          _initializeData();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2B7CD3),
-                        ),
-                        child: const Text('Retry'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.red.shade300,
                   ),
-                )
-              : Column(
-                  children: [
-                    // Search bar
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: TextField(
-                        onChanged: (value) =>
-                            setState(() => searchQuery = value),
-                        decoration: InputDecoration(
-                          hintText: 'Search sellers by name or city...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () =>
-                                      setState(() => searchQuery = ''),
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
+                  const SizedBox(height: 16),
+                  Text(
+                    loadingError!,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        isLoading = true;
+                        loadingError = null;
+                      });
+                      _initializeData();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2B7CD3),
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                // Search bar
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    onChanged: (value) => setState(() => searchQuery = value),
+                    decoration: InputDecoration(
+                      hintText: 'Search sellers by name or city...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () => setState(() => searchQuery = ''),
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-
-                    // Seller list
-                    if (filteredSellers.isEmpty)
-                      Expanded(
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.person_search,
-                                size: 64,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                searchQuery.isEmpty
-                                    ? 'No sellers found nearby'
-                                    : 'No results for "$searchQuery"',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: filteredSellers.length,
-                          itemBuilder: (context, index) {
-                            final seller = filteredSellers[index];
-                            return _buildSellerCard(seller);
-                          },
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
+
+                // Seller list
+                if (filteredSellers.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.person_search,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            searchQuery.isEmpty
+                                ? 'No sellers found nearby'
+                                : 'No results for "$searchQuery"',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredSellers.length,
+                      itemBuilder: (context, index) {
+                        final seller = filteredSellers[index];
+                        return _buildSellerCard(seller);
+                      },
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 
@@ -276,9 +333,7 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -291,9 +346,7 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
                   radius: 28,
                   backgroundColor: Colors.green.shade600,
                   child: Text(
-                    firstName.isNotEmpty
-                        ? firstName[0].toUpperCase()
-                        : 'S',
+                    firstName.isNotEmpty ? firstName[0].toUpperCase() : 'S',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -313,12 +366,27 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        city,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            seller['address'] ?? '$city',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$city',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -330,18 +398,14 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
             // Distance and location
             Row(
               children: [
-                Icon(
-                  Icons.location_on,
-                  size: 16,
-                  color: Colors.green.shade600,
-                ),
+                Icon(Icons.location_on, size: 16, color: Colors.green.shade600),
                 const SizedBox(width: 4),
                 Text(
                   distance < 1
                       ? '${(distance * 1000).toStringAsFixed(0)} m away'
                       : distance >= 999999
-                          ? 'Distance unknown'
-                          : '${distance.toStringAsFixed(2)} km away',
+                      ? 'Distance unknown'
+                      : '${distance.toStringAsFixed(2)} km away',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.green.shade600,
@@ -368,6 +432,8 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
                             userRole: 'seller',
                             address: seller['address'],
                             phoneUID: seller['uid'],
+                            buyerLatitude: buyerLat,
+                            buyerLongitude: buyerLng,
                           ),
                         ),
                       );

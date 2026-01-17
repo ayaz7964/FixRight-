@@ -141,6 +141,18 @@ class LocationService {
     }
   }
 
+  /// Expose a position stream for live updates (wrapper around Geolocator)
+  static Stream<Position> getPositionStream({
+    LocationAccuracy accuracy = LocationAccuracy.high,
+    int distanceFilter = 10,
+  }) {
+    final settings = LocationSettings(
+      accuracy: accuracy,
+      distanceFilter: distanceFilter,
+    );
+    return Geolocator.getPositionStream(locationSettings: settings);
+  }
+
   /// Calculate distance between two coordinates in kilometers
   static Future<double> calculateDistance(
     double lat1,

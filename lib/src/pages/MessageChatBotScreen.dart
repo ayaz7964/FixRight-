@@ -1,67 +1,66 @@
 import 'package:flutter/material.dart';
-
-class Contact {
-  final String userId;
-  final String userName;
-  final List conv;
-  const Contact({
-    required this.userId,
-    required this.conv,
-    required this.userName,
-  });
-}
+import 'ChatListScreen.dart';
 
 class MessageChatBotScreen extends StatelessWidget {
   final String? phoneUID;
 
-  final List<Contact> contacts = const [
-    Contact(
-      userId: 'ahs786',
-      conv: ['from ', 'Hello Ayaz '],
-      userName: 'Ayaz ',
-    ),
-  ];
-
   const MessageChatBotScreen({super.key, this.phoneUID});
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Chat & Support')),
-    body: GestureDetector(
-      onTap: () {},
-
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(40),
-          color: Colors.amberAccent,
-        ),
-        height: 80,
-        margin: EdgeInsets.all(10),
-        padding: EdgeInsets.all(10),
-        child: Row(
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Chat & Support')),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
           children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundImage: NetworkImage(
-                'https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80',
+            GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListScreen()));
+              },
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                ),
+                height: 90,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 28,
+                      backgroundImage: NetworkImage('https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80'),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Text('Support & Messages', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 6),
+                          Text('Tap to open your conversations', style: TextStyle(color: Colors.black54)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: Colors.black38),
+                  ],
+                ),
               ),
             ),
-            SizedBox(width: 20),
-
+            const SizedBox(height: 12),
             Expanded(
-              child: Column(
-                children: [
-                  Text(
-                    "Ayaz Hussain ",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  Text("Good Morning   "),
-                ],
+              child: Center(
+                child: Text('Open conversations to chat with buyers, sellers or support.', style: TextStyle(color: Colors.black54)),
               ),
-            ),
+            )
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }
+
