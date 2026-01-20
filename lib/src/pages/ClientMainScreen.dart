@@ -209,7 +209,7 @@
 
 import 'package:flutter/material.dart';
 import 'home_page.dart';
-import 'MessageChatBotScreen.dart';
+import 'MessengerHomeScreen.dart';
 import 'orders_page.dart';
 import 'ProfileScreen.dart';
 import 'JobPostingScreen.dart';
@@ -244,7 +244,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
     // Initialize _widgetOptions, passing the callback to ProfileScreen
     _widgetOptions = <Widget>[
       HomePage(phoneUID: widget.phoneUID),
-      MessageChatBotScreen(phoneUID: widget.phoneUID),
+      const MessengerHomeScreen(),
       OrdersPage(phoneUID: widget.phoneUID),
       ProfileScreen(
         isSellerMode: widget.isSellerMode,

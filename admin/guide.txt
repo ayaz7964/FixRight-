@@ -1,0 +1,13 @@
+Provider Type - Already set to "OpenAI (GPT-4, GPT-3.5)" ✓
+
+Display Name - Change to a descriptive name like "GPT-4" or leave as "GPT"
+
+API Endpoint - Replace with:
+https://api.openai.com/v1/chat/completions
+API Key - Paste your key:
+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
+Model ID - Enter:
+gpt-4
+(or gpt-3.5-turbo for faster/cheaper responses)
+
+Click "Save Provider" button

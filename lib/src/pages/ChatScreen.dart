@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/chat_service.dart';
 import '../models/message.dart';
 
@@ -53,13 +54,14 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: Row(children: [CircleAvatar(child: Text(widget.peerUid.isNotEmpty ? widget.peerUid[0] : '?')), const SizedBox(width: 8), Text(widget.peerUid)]),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.call),
-            onPressed: () async {
-              final callId = await _chatService.createCall(widget.peerUid, {'note': 'audio-call'});
-              Navigator.push(context, MaterialPageRoute(builder: (_) => CallScreen(callId: callId)));
-            },
-          )
+          // WebRTC calls are not supported on web platform
+          // IconButton(
+          //   icon: const Icon(Icons.call),
+          //   onPressed: () async {
+          //     final callId = await _chatService.createCall(widget.peerUid, {'note': 'audio-call'});
+          //     Navigator.push(context, MaterialPageRoute(builder: (_) => CallScreen(callId: callId)));
+          //   },
+          // )
         ],
       ),
       body: Column(
@@ -140,9 +142,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-// Minimal call screen for WebRTC flow
+// WebRTC CallScreen is disabled for web platform compatibility
+// Uncomment and move to separate file for mobile-only builds
+/*
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CallScreen extends StatefulWidget {
   final String callId;
@@ -216,3 +219,4 @@ class _CallScreenState extends State<CallScreen> {
     );
   }
 }
+*/
