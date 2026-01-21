@@ -22,7 +22,10 @@ class ChatService {
       // Create a deterministic conversation ID
       final conversationId = _getConversationId(userId1, userId2);
 
-      final doc = await _firestore.collection('conversations').doc(conversationId).get();
+      final doc = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
 
       if (doc.exists) {
         return ChatConversation.fromDoc(doc);
@@ -32,27 +35,21 @@ class ChatService {
       final conversation = ChatConversation(
         id: conversationId,
         participantIds: [userId1, userId2],
-        participantNames: {
-          userId1: user1.fullName,
-          userId2: user2.fullName,
-        },
+        participantNames: {userId1: user1.fullName, userId2: user2.fullName},
         participantProfileImages: {
           userId1: user1.profileImageUrl,
           userId2: user2.profileImageUrl,
         },
-        participantRoles: {
-          userId1: user1.role,
-          userId2: user2.role,
-        },
+        participantRoles: {userId1: user1.role, userId2: user2.role},
         lastMessage: '',
         lastMessageAt: Timestamp.now(),
-        unreadCounts: {
-          userId1: 0,
-          userId2: 0,
-        },
+        unreadCounts: {userId1: 0, userId2: 0},
       );
 
-      await _firestore.collection('conversations').doc(conversationId).set(conversation.toMap());
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .set(conversation.toMap());
 
       return conversation;
     } catch (e) {
@@ -73,10 +70,16 @@ class ChatService {
     String? sourceLanguage,
   }) async {
     try {
-      final messageId = _firestore.collection('conversations').doc(conversationId).collection('messages').doc().id;
+      final messageId = _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .doc()
+          .id;
 
       // Detect language if not provided
-      final detectedLanguage = sourceLanguage ?? await _translationService.detectLanguage(text);
+      final detectedLanguage =
+          sourceLanguage ?? await _translationService.detectLanguage(text);
 
       final message = MessageModel(
         id: messageId,
@@ -121,12 +124,16 @@ class ChatService {
         .collection('messages')
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => MessageModel.fromDoc(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => MessageModel.fromDoc(doc)).toList(),
+        );
   }
 
   /// Get conversations for current user
   Stream<List<ChatConversation>> getUserConversations() {
-    final currentUserId = _auth.currentUser?.uid;
+    // Use phone number as user ID (FixRight architecture)
+    final currentUserId = _auth.currentUser?.phoneNumber;
     if (currentUserId == null) return const Stream.empty();
 
     return _firestore
@@ -134,13 +141,17 @@ class ChatService {
         .where('participantIds', arrayContains: currentUserId)
         .orderBy('lastMessageAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => ChatConversation.fromDoc(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ChatConversation.fromDoc(doc))
+              .toList(),
+        );
   }
 
   /// Search conversations
   Future<List<ChatConversation>> searchConversations(String query) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
+      final currentUserId = _auth.currentUser?.phoneNumber;
       if (currentUserId == null) return [];
 
       // Get all conversations and filter locally (Firestore doesn't support complex text search easily)
@@ -149,13 +160,12 @@ class ChatService {
           .where('participantIds', arrayContains: currentUserId)
           .get();
 
-      return snapshot.docs
-          .map((doc) => ChatConversation.fromDoc(doc))
-          .where((conv) {
-            final otherName = conv.getOtherParticipantName(currentUserId);
-            return otherName?.toLowerCase().contains(query.toLowerCase()) ?? false;
-          })
-          .toList();
+      return snapshot.docs.map((doc) => ChatConversation.fromDoc(doc)).where((
+        conv,
+      ) {
+        final otherName = conv.getOtherParticipantName(currentUserId);
+        return otherName?.toLowerCase().contains(query.toLowerCase()) ?? false;
+      }).toList();
     } catch (e) {
       print('Error searching conversations: $e');
       return [];
@@ -163,7 +173,10 @@ class ChatService {
   }
 
   /// Mark message as seen
-  Future<void> markMessageAsSeen(String conversationId, String messageId) async {
+  Future<void> markMessageAsSeen(
+    String conversationId,
+    String messageId,
+  ) async {
     try {
       await _firestore
           .collection('conversations')
@@ -211,9 +224,7 @@ class ChatService {
           .doc(conversationId)
           .collection('messages')
           .doc(messageId)
-          .update({
-        'translationsByLanguage.$targetLanguage': translated,
-      });
+          .update({'translationsByLanguage.$targetLanguage': translated});
 
       return translated;
     } catch (e) {
@@ -235,11 +246,11 @@ class ChatService {
           .collection('messages')
           .doc(messageId)
           .update({
-        'originalText': newText,
-        'isEdited': true,
-        'editedAt': Timestamp.now(),
-        'translationsByLanguage': {}, // Clear translations on edit
-      });
+            'originalText': newText,
+            'isEdited': true,
+            'editedAt': Timestamp.now(),
+            'translationsByLanguage': {}, // Clear translations on edit
+          });
     } catch (e) {
       print('Error editing message: $e');
     }
@@ -269,10 +280,7 @@ class ChatService {
     required bool isTyping,
   }) async {
     try {
-      await _firestore
-          .collection('conversations')
-          .doc(conversationId)
-          .update({
+      await _firestore.collection('conversations').doc(conversationId).update({
         'typingUsers': isTyping
             ? FieldValue.arrayUnion([userId])
             : FieldValue.arrayRemove([userId]),
@@ -297,10 +305,7 @@ class ChatService {
     required String blockUserId,
   }) async {
     try {
-      await _firestore
-          .collection('conversations')
-          .doc(conversationId)
-          .update({
+      await _firestore.collection('conversations').doc(conversationId).update({
         'blockedUsers': FieldValue.arrayUnion([blockUserId]),
       });
     } catch (e) {
@@ -314,10 +319,7 @@ class ChatService {
     required String unblockUserId,
   }) async {
     try {
-      await _firestore
-          .collection('conversations')
-          .doc(conversationId)
-          .update({
+      await _firestore.collection('conversations').doc(conversationId).update({
         'blockedUsers': FieldValue.arrayRemove([unblockUserId]),
       });
     } catch (e) {
@@ -337,7 +339,10 @@ class ChatService {
       final currentUserId = _auth.currentUser?.uid;
       if (currentUserId == null) return 0;
 
-      final doc = await _firestore.collection('conversations').doc(conversationId).get();
+      final doc = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
       final unreadCounts = doc['unreadCounts'] as Map<String, dynamic>?;
       return unreadCounts?[currentUserId] ?? 0;
     } catch (e) {
@@ -347,9 +352,15 @@ class ChatService {
   }
 
   /// Increment unread count for other participants
-  Future<void> incrementUnreadCount(String conversationId, String senderId) async {
+  Future<void> incrementUnreadCount(
+    String conversationId,
+    String senderId,
+  ) async {
     try {
-      final doc = await _firestore.collection('conversations').doc(conversationId).get();
+      final doc = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
       final participants = List<String>.from(doc['participantIds'] ?? []);
 
       for (final participantId in participants) {
@@ -357,9 +368,7 @@ class ChatService {
           await _firestore
               .collection('conversations')
               .doc(conversationId)
-              .update({
-            'unreadCounts.$participantId': FieldValue.increment(1),
-          });
+              .update({'unreadCounts.$participantId': FieldValue.increment(1)});
         }
       }
     } catch (e) {
@@ -371,16 +380,16 @@ class ChatService {
   Future<List<String>> fetchAllSkills() async {
     try {
       final snapshot = await _firestore.collection('users').get();
-      
+
       final skillsSet = <String>{};
-      
+
       for (final doc in snapshot.docs) {
         final data = doc.data();
         if (data['skills'] != null && data['skills'] is List) {
           skillsSet.addAll(List<String>.from(data['skills']));
         }
       }
-      
+
       return skillsSet.toList()..sort();
     } catch (e) {
       print('Error fetching skills: $e');
@@ -469,7 +478,9 @@ class ChatService {
         for (final doc in snap.docs) {
           if (doc.id == currentUserId) continue;
           final data = doc.data();
-          final fullName = '${(data['firstName'] ?? '').toString()} ${(data['lastName'] ?? '').toString()}'.toLowerCase();
+          final fullName =
+              '${(data['firstName'] ?? '').toString()} ${(data['lastName'] ?? '').toString()}'
+                  .toLowerCase();
           if (fullName.contains(queryLower)) {
             results.add(_userMapFromDoc(doc));
           }
@@ -510,8 +521,14 @@ class ChatService {
       final currentUserId = _auth.currentUser?.uid;
       if (currentUserId == null) return null;
 
-      final currentDoc = await _firestore.collection('users').doc(currentUserId).get();
-      final targetDoc = await _firestore.collection('users').doc(targetUserId).get();
+      final currentDoc = await _firestore
+          .collection('users')
+          .doc(currentUserId)
+          .get();
+      final targetDoc = await _firestore
+          .collection('users')
+          .doc(targetUserId)
+          .get();
 
       if (!currentDoc.exists || !targetDoc.exists) return null;
 
@@ -552,12 +569,12 @@ class ChatService {
       for (final doc in snapshot.docs) {
         if (doc.id != currentUserId) {
           final data = doc.data();
-          
+
           // Check if seller has location
           if (data['latitude'] != null && data['longitude'] != null) {
             final sellerLat = (data['latitude'] as num).toDouble();
             final sellerLng = (data['longitude'] as num).toDouble();
-            
+
             // Calculate distance using Haversine formula
             final distance = _calculateDistance(
               buyerLatitude,
@@ -572,7 +589,9 @@ class ChatService {
                 'userId': doc.id,
                 'firstName': data['firstName'] ?? '',
                 'lastName': data['lastName'] ?? '',
-                'fullName': '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim(),
+                'fullName':
+                    '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
+                        .trim(),
                 'role': 'Seller',
                 'profileImageUrl': data['profileImageUrl'],
                 'skills': List<String>.from(data['skills'] ?? []),
@@ -589,7 +608,9 @@ class ChatService {
       }
 
       // Sort by distance
-      sellers.sort((a, b) => (a['distance'] as double).compareTo(b['distance'] as double));
+      sellers.sort(
+        (a, b) => (a['distance'] as double).compareTo(b['distance'] as double),
+      );
 
       return sellers;
     } catch (e) {
@@ -618,7 +639,8 @@ class ChatService {
             'userId': doc.id,
             'firstName': data['firstName'] ?? '',
             'lastName': data['lastName'] ?? '',
-            'fullName': '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim(),
+            'fullName': '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
+                .trim(),
             'role': 'Seller',
             'profileImageUrl': data['profileImageUrl'],
             'skills': List<String>.from(data['skills'] ?? []),
@@ -658,7 +680,8 @@ class ChatService {
             'userId': doc.id,
             'firstName': data['firstName'] ?? '',
             'lastName': data['lastName'] ?? '',
-            'fullName': '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim(),
+            'fullName': '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
+                .trim(),
             'role': 'Seller',
             'profileImageUrl': data['profileImageUrl'],
             'skills': List<String>.from(data['skills'] ?? []),
@@ -691,7 +714,8 @@ class ChatService {
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
 
-    final a = (sin(dLat / 2) * sin(dLat / 2)) +
+    final a =
+        (sin(dLat / 2) * sin(dLat / 2)) +
         (cos(_toRadians(lat1)) *
             cos(_toRadians(lat2)) *
             sin(dLon / 2) *

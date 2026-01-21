@@ -26,25 +26,31 @@ class ChatConversation {
   });
 
   Map<String, dynamic> toMap() => {
-        'participantIds': participantIds,
-        'participantNames': participantNames,
-        'participantProfileImages': participantProfileImages,
-        'participantRoles': participantRoles,
-        'lastMessage': lastMessage,
-        'lastMessageSenderId': lastMessageSenderId,
-        'lastMessageAt': lastMessageAt,
-        'unreadCounts': unreadCounts,
-        'blockedUsers': blockedUsers,
-      };
+    'participantIds': participantIds,
+    'participantNames': participantNames,
+    'participantProfileImages': participantProfileImages,
+    'participantRoles': participantRoles,
+    'lastMessage': lastMessage,
+    'lastMessageSenderId': lastMessageSenderId,
+    'lastMessageAt': lastMessageAt,
+    'unreadCounts': unreadCounts,
+    'blockedUsers': blockedUsers,
+  };
 
   factory ChatConversation.fromDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return ChatConversation(
       id: doc.id,
       participantIds: List<String>.from(data['participantIds'] ?? []),
-      participantNames: Map<String, String>.from(data['participantNames'] ?? {}),
-      participantProfileImages: Map<String, String?>.from(data['participantProfileImages'] ?? {}),
-      participantRoles: Map<String, String>.from(data['participantRoles'] ?? {}),
+      participantNames: Map<String, String>.from(
+        data['participantNames'] ?? {},
+      ),
+      participantProfileImages: Map<String, String?>.from(
+        data['participantProfileImages'] ?? {},
+      ),
+      participantRoles: Map<String, String>.from(
+        data['participantRoles'] ?? {},
+      ),
       lastMessage: data['lastMessage'] ?? '',
       lastMessageSenderId: data['lastMessageSenderId'],
       lastMessageAt: data['lastMessageAt'] ?? Timestamp.now(),
@@ -54,7 +60,10 @@ class ChatConversation {
   }
 
   String getOtherParticipantId(String currentUserId) {
-    return participantIds.firstWhere((id) => id != currentUserId, orElse: () => '');
+    return participantIds.firstWhere(
+      (id) => id != currentUserId,
+      orElse: () => '',
+    );
   }
 
   String? getOtherParticipantName(String currentUserId) {

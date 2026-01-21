@@ -33,18 +33,20 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _currentUserId = _auth.currentUser?.uid ?? '';
+    // Use phone number as user ID (FixRight architecture)
+    _currentUserId = _auth.currentUser?.phoneNumber ?? '';
     _loadUserPreferences();
   }
 
   void _loadUserPreferences() async {
     try {
-      final doc =
-          await _firestore.collection('users').doc(_currentUserId).get();
+      final doc = await _firestore
+          .collection('users')
+          .doc(_currentUserId)
+          .get();
       if (doc.exists) {
         setState(() {
-          _autoTranslateLanguage =
-              doc['preferredLanguage'] ?? 'ur';
+          _autoTranslateLanguage = doc['preferredLanguage'] ?? 'ur';
         });
       }
     } catch (e) {
@@ -111,15 +113,11 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      color: _isDarkMode
-          ? const Color(0xFF1a1a1a)
-          : Colors.grey[100],
+      color: _isDarkMode ? const Color(0xFF1a1a1a) : Colors.grey[100],
       child: TextField(
         controller: _searchController,
         onChanged: (value) => setState(() => _searchQuery = value),
-        style: TextStyle(
-          color: _isDarkMode ? Colors.white : Colors.black87,
-        ),
+        style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87),
         decoration: InputDecoration(
           hintText: 'Search contacts or messages...',
           hintStyle: TextStyle(
@@ -139,14 +137,15 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                 )
               : null,
           filled: true,
-          fillColor:
-              _isDarkMode ? Colors.grey[900] : Colors.white,
+          fillColor: _isDarkMode ? Colors.grey[900] : Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
             borderSide: BorderSide.none,
           ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
+          ),
         ),
       ),
     );
@@ -163,8 +162,8 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             label: _userTypeFilter == 'all'
                 ? 'All'
                 : _userTypeFilter == 'buyer'
-                    ? 'Buyers'
-                    : 'Sellers',
+                ? 'Buyers'
+                : 'Sellers',
             selected: true,
             onTap: () => _showUserTypeFilter(),
           ),
@@ -176,8 +175,8 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             label: _locationFilter == 'all'
                 ? 'Location'
                 : _locationFilter == 'nearest'
-                    ? 'Nearest'
-                    : 'Same City',
+                ? 'Nearest'
+                : 'Same City',
             onTap: () => _showLocationFilter(),
           ),
 
@@ -185,9 +184,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
 
           // Skills/Categories Filter
           _buildFilterChip(
-            label: _skillFilter == 'all'
-                ? 'Skills'
-                : _skillFilter,
+            label: _skillFilter == 'all' ? 'Skills' : _skillFilter,
             onTap: () => _showSkillsFilter(),
           ),
 
@@ -216,24 +213,18 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: backgroundColor ??
+          color:
+              backgroundColor ??
               (selected
                   ? const Color(0xFF2B7CD3)
-                  : (_isDarkMode
-                      ? Colors.grey[800]
-                      : Colors.grey[200])),
+                  : (_isDarkMode ? Colors.grey[800] : Colors.grey[200])),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
                 ? const Color(0xFF2B7CD3)
-                : (_isDarkMode
-                    ? Colors.grey[700]!
-                    : Colors.grey[300]!),
+                : (_isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
           ),
         ),
         child: Row(
@@ -244,22 +235,17 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
               style: TextStyle(
                 color: selected
                     ? Colors.white
-                    : (_isDarkMode
-                        ? Colors.white
-                        : Colors.black87),
+                    : (_isDarkMode ? Colors.white : Colors.black87),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            if (selected || label == 'Clear')
-              const SizedBox(width: 4),
+            if (selected || label == 'Clear') const SizedBox(width: 4),
             if (selected || label == 'Clear')
               Icon(
                 selected ? Icons.expand_more : Icons.close,
                 size: 16,
-                color: selected
-                    ? Colors.white
-                    : Colors.red,
+                color: selected ? Colors.white : Colors.red,
               ),
           ],
         ),
@@ -273,9 +259,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return Center(
-            child: CircularProgressIndicator(
-              color: const Color(0xFF2B7CD3),
-            ),
+            child: CircularProgressIndicator(color: const Color(0xFF2B7CD3)),
           );
         }
 
@@ -286,26 +270,16 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.mail_outline,
-                  size: 64,
-                  color: Colors.grey[600],
-                ),
+                Icon(Icons.mail_outline, size: 64, color: Colors.grey[600]),
                 const SizedBox(height: 16),
                 Text(
                   'No messages yet',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Start a conversation with a contact',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 ),
               ],
             ),
@@ -329,9 +303,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
-            child: CircularProgressIndicator(
-              color: const Color(0xFF2B7CD3),
-            ),
+            child: CircularProgressIndicator(color: const Color(0xFF2B7CD3)),
           );
         }
 
@@ -340,18 +312,11 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.search_off,
-                  size: 64,
-                  color: Colors.grey[600],
-                ),
+                Icon(Icons.search_off, size: 64, color: Colors.grey[600]),
                 const SizedBox(height: 16),
                 Text(
                   'No users found for "$_searchQuery"',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -385,32 +350,105 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
 
     return GestureDetector(
       onTap: () async {
-        // Start or get conversation, then open chat
-        final convId = await _chatService.startConversationWithUser(userId);
-        if (convId != null && convId.isNotEmpty) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChatDetailScreen(
-                conversationId: convId,
-                otherUserId: userId,
-                otherUserName: fullName,
-                otherUserImage: profileImage,
+        // Create or navigate to conversation
+        try {
+          final currentUser = _auth.currentUser;
+          if (currentUser == null) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Please login first')));
+            return;
+          }
+
+          // Use phone number from Firebase Auth (currentUser.phoneNumber is already set)
+          final currentUserPhone = currentUser.phoneNumber ?? '';
+          // Get phone from userId (which is doc.id - the phone number in Firestore schema)
+          final otherUserPhone = user['userId'] ?? '';
+
+          if (currentUserPhone.isEmpty || otherUserPhone.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Phone number not found')),
+            );
+            return;
+          }
+
+          // Generate deterministic conversation ID
+          final phones = [currentUserPhone, otherUserPhone]..sort();
+          final conversationId = '${phones[0]}_${phones[1]}';
+
+          // Check if conversation exists, create if not
+          final convDoc = await _firestore
+              .collection('conversations')
+              .doc(conversationId)
+              .get();
+
+          if (!convDoc.exists) {
+            // Get current user's full profile
+            final currentUserDoc = await _firestore
+                .collection('users')
+                .doc(currentUserPhone)
+                .get();
+
+            if (!currentUserDoc.exists) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Your profile not found')),
+              );
+              return;
+            }
+
+            final currentUserData =
+                currentUserDoc.data() as Map<String, dynamic>;
+
+            // Create conversation in Firestore with complete data
+            await _firestore.collection('conversations').doc(conversationId).set({
+              'participantIds': [currentUserPhone, otherUserPhone],
+              'participantNames': {
+                currentUserPhone:
+                    '${currentUserData['firstName'] ?? ''} ${currentUserData['lastName'] ?? ''}'
+                        .trim(),
+                otherUserPhone: fullName,
+              },
+              'participantRoles': {
+                currentUserPhone: currentUserData['role'] ?? 'buyer',
+                otherUserPhone: role,
+              },
+              'participantProfileImages': {
+                currentUserPhone: currentUserData['profileImageUrl'] ?? '',
+                otherUserPhone: profileImage ?? '',
+              },
+              'lastMessage': '',
+              'lastMessageAt': Timestamp.now(),
+              'createdAt': Timestamp.now(),
+              'unreadCounts': {currentUserPhone: 0, otherUserPhone: 0},
+            });
+          }
+
+          // Navigate to chat screen with all necessary data
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatDetailScreen(
+                  conversationId: conversationId,
+                  otherUserId: otherUserPhone, // Use phone as ID
+                  otherUserName: fullName,
+                  otherUserImage: profileImage,
+                ),
               ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Unable to start conversation')),
-          );
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+          }
+          print('Error starting conversation: $e');
         }
       },
       child: Container(
         color: _isDarkMode ? Colors.black : Colors.white,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         child: Column(
           children: [
             Row(
@@ -465,8 +503,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                               color: role == 'Seller'
                                   ? Colors.green[700]
                                   : Colors.blue[700],
-                              borderRadius:
-                                  BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               role,
@@ -557,13 +594,10 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2B7CD3)
-                                .withOpacity(0.2),
-                            borderRadius:
-                                BorderRadius.circular(12),
+                            color: const Color(0xFF2B7CD3).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color:
-                                  const Color(0xFF2B7CD3),
+                              color: const Color(0xFF2B7CD3),
                               width: 0.5,
                             ),
                           ),
@@ -580,6 +614,142 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                       .toList(),
                 ),
               ),
+            // Contact Button (visible action)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2B7CD3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onPressed: () async {
+                    // Contact button action - same as tap logic
+                    try {
+                      final currentUser = _auth.currentUser;
+                      if (currentUser == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please login first')),
+                        );
+                        return;
+                      }
+
+                      final currentUserPhone = currentUser.phoneNumber ?? '';
+                      final otherUserPhone = user['userId'] ?? '';
+
+                      if (currentUserPhone.isEmpty || otherUserPhone.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Phone number not found'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final phones = [currentUserPhone, otherUserPhone]..sort();
+                      final conversationId = '${phones[0]}_${phones[1]}';
+
+                      final convDoc = await _firestore
+                          .collection('conversations')
+                          .doc(conversationId)
+                          .get();
+
+                      if (!convDoc.exists) {
+                        final currentUserDoc = await _firestore
+                            .collection('users')
+                            .doc(currentUserPhone)
+                            .get();
+
+                        if (!currentUserDoc.exists) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Your profile not found'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final currentUserData =
+                            currentUserDoc.data() as Map<String, dynamic>;
+
+                        await _firestore
+                            .collection('conversations')
+                            .doc(conversationId)
+                            .set({
+                              'participantIds': [
+                                currentUserPhone,
+                                otherUserPhone,
+                              ],
+                              'participantNames': {
+                                currentUserPhone:
+                                    '${currentUserData['firstName'] ?? ''} ${currentUserData['lastName'] ?? ''}'
+                                        .trim(),
+                                otherUserPhone: fullName,
+                              },
+                              'participantRoles': {
+                                currentUserPhone:
+                                    currentUserData['role'] ?? 'buyer',
+                                otherUserPhone: role,
+                              },
+                              'participantProfileImages': {
+                                currentUserPhone:
+                                    currentUserData['profileImageUrl'] ?? '',
+                                otherUserPhone: profileImage ?? '',
+                              },
+                              'lastMessage': '',
+                              'lastMessageAt': Timestamp.now(),
+                              'createdAt': Timestamp.now(),
+                              'unreadCounts': {
+                                currentUserPhone: 0,
+                                otherUserPhone: 0,
+                              },
+                            });
+                      }
+
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatDetailScreen(
+                              conversationId: conversationId,
+                              otherUserId: otherUserPhone,
+                              otherUserName: fullName,
+                              otherUserImage: profileImage,
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: ${e.toString()}')),
+                        );
+                      }
+                      print('Error contacting user: $e');
+                    }
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.mail_outline, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Send Message',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             const Divider(),
           ],
         ),
@@ -608,158 +778,146 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
           ),
         );
       },
-      child: Container(
-        color: _isDarkMode
-            ? Colors.black
-            : Colors.white,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 8,
-        ),
-        child: Row(
-          children: [
-            // Avatar with online indicator
-            Stack(
+      child: Column(
+        children: [
+          Container(
+            color: _isDarkMode ? Colors.black : Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: const Color(0xFF2B7CD3),
-                  backgroundImage: otherImage != null
-                      ? NetworkImage(otherImage)
-                      : null,
-                  child: otherImage == null
-                      ? Text(
-                          otherName?.isNotEmpty == true
-                              ? otherName!.substring(0, 1).toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                // Avatar with online indicator
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: const Color(0xFF2B7CD3),
+                      backgroundImage: otherImage != null
+                          ? NetworkImage(otherImage)
+                          : null,
+                      child: otherImage == null
+                          ? Text(
+                              otherName?.isNotEmpty == true
+                                  ? otherName!.substring(0, 1).toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                    // Online indicator
+                    FutureBuilder<DocumentSnapshot>(
+                      future: _firestore.collection('users').doc(otherId).get(),
+                      builder: (context, snap) {
+                        if (snap.hasData && snap.data?['isOnline'] == true) {
+                          return Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: _isDarkMode ? Colors.black : Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ],
                 ),
-                // Online indicator
-                FutureBuilder<DocumentSnapshot>(
-                  future: _firestore
-                      .collection('users')
-                      .doc(otherId)
-                      .get(),
-                  builder: (context, snap) {
-                    if (snap.hasData &&
-                        snap.data?['isOnline'] == true) {
-                      return Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _isDarkMode
-                                  ? Colors.black
-                                  : Colors.white,
-                              width: 2,
+
+                const SizedBox(width: 12),
+
+                // Message info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Name and time
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              otherName ?? 'Unknown',
+                              style: TextStyle(
+                                fontWeight: unreadCount > 0
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                fontSize: 14,
+                                color: _isDarkMode ? Colors.white : Colors.black87,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
+                          Text(
+                            _formatChatTime(conversation.lastMessageAt),
+                            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Last message preview
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              conversation.lastMessage.isEmpty
+                                  ? 'No messages yet'
+                                  : conversation.lastMessage,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: unreadCount > 0
+                                    ? (_isDarkMode ? Colors.white : Colors.black87)
+                                    : Colors.grey[500],
+                              ),
+                            ),
+                          ),
+                          if (unreadCount > 0)
+                            Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2B7CD3),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                unreadCount > 99 ? '99+' : unreadCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-
-            const SizedBox(width: 12),
-
-            // Message info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Name and time
-                  Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          otherName ?? 'Unknown',
-                          style: TextStyle(
-                            fontWeight: unreadCount > 0
-                                ? FontWeight.bold
-                                : FontWeight.w500,
-                            fontSize: 14,
-                            color: _isDarkMode
-                                ? Colors.white
-                                : Colors.black87,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _formatChatTime(
-                            conversation.lastMessageAt),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  // Last message preview
-                  Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          conversation.lastMessage,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: unreadCount > 0
-                                ? (_isDarkMode
-                                    ? Colors.white
-                                    : Colors.black87)
-                                : Colors.grey[500],
-                          ),
-                        ),
-                      ),
-                      if (unreadCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2B7CD3),
-                            borderRadius:
-                                BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            unreadCount > 99
-                                ? '99+'
-                                : unreadCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+          // Divider
+          Divider(
+            height: 1,
+            color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
+          ),
+        ],
       ),
     );
   }
@@ -772,8 +930,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     return BottomNavigationBar(
       currentIndex: _currentTabIndex,
       onTap: (index) => setState(() => _currentTabIndex = index),
-      backgroundColor:
-          _isDarkMode ? Colors.black : Colors.white,
+      backgroundColor: _isDarkMode ? Colors.black : Colors.white,
       selectedItemColor: const Color(0xFF2B7CD3),
       unselectedItemColor: Colors.grey,
       items: const [
@@ -805,15 +962,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
         date.year == now.year) {
       return 'Yesterday';
     } else if (now.difference(date).inDays < 7) {
-      final days = [
-        'Sun',
-        'Mon',
-        'Tue',
-        'Wed',
-        'Thu',
-        'Fri',
-        'Sat'
-      ];
+      final days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       return days[date.weekday % 7];
     } else {
       return '${date.day}/${date.month}';
@@ -835,16 +984,14 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color:
-                      _isDarkMode ? Colors.white : Colors.black87,
+                  color: _isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
             ),
             ListTile(
               title: const Text('All Contacts'),
               trailing: _userTypeFilter == 'all'
-                  ? const Icon(Icons.check,
-                      color: Color(0xFF2B7CD3))
+                  ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
                   : null,
               onTap: () {
                 setState(() => _userTypeFilter = 'all');
@@ -854,8 +1001,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             ListTile(
               title: const Text('Buyers Only'),
               trailing: _userTypeFilter == 'buyer'
-                  ? const Icon(Icons.check,
-                      color: Color(0xFF2B7CD3))
+                  ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
                   : null,
               onTap: () {
                 setState(() => _userTypeFilter = 'buyer');
@@ -865,8 +1011,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             ListTile(
               title: const Text('Sellers Only'),
               trailing: _userTypeFilter == 'seller'
-                  ? const Icon(Icons.check,
-                      color: Color(0xFF2B7CD3))
+                  ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
                   : null,
               onTap: () {
                 setState(() => _userTypeFilter = 'seller');
@@ -894,16 +1039,14 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color:
-                      _isDarkMode ? Colors.white : Colors.black87,
+                  color: _isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
             ),
             ListTile(
               title: const Text('All Locations'),
               trailing: _locationFilter == 'all'
-                  ? const Icon(Icons.check,
-                      color: Color(0xFF2B7CD3))
+                  ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
                   : null,
               onTap: () {
                 setState(() => _locationFilter = 'all');
@@ -913,8 +1056,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             ListTile(
               title: const Text('Same City'),
               trailing: _locationFilter == 'sameCity'
-                  ? const Icon(Icons.check,
-                      color: Color(0xFF2B7CD3))
+                  ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
                   : null,
               onTap: () {
                 setState(() => _locationFilter = 'sameCity');
@@ -925,8 +1067,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
               title: const Text('Nearest (10km)'),
               subtitle: const Text('Based on your location'),
               trailing: _locationFilter == 'nearest'
-                  ? const Icon(Icons.check,
-                      color: Color(0xFF2B7CD3))
+                  ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
                   : null,
               onTap: () {
                 setState(() => _locationFilter = 'nearest');
@@ -943,7 +1084,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     // Fetch skills from Firebase
     _chatService.fetchAllSkills().then((skills) {
       if (!mounted) return;
-      
+
       showModalBottomSheet(
         context: context,
         builder: (context) => Container(
@@ -958,24 +1099,21 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color:
-                        _isDarkMode ? Colors.white : Colors.black87,
+                    color: _isDarkMode ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
               ListTile(
                 title: const Text('All Skills'),
                 trailing: _skillFilter == 'all'
-                    ? const Icon(Icons.check,
-                        color: Color(0xFF2B7CD3))
+                    ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
                     : null,
                 onTap: () {
                   setState(() => _skillFilter = 'all');
                   Navigator.pop(context);
                 },
               ),
-              if (skills.isNotEmpty)
-                const Divider(),
+              if (skills.isNotEmpty) const Divider(),
               if (skills.isNotEmpty)
                 Expanded(
                   child: ListView.builder(
@@ -985,12 +1123,10 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                       return ListTile(
                         title: Text(skill),
                         trailing: _skillFilter == skill
-                            ? const Icon(Icons.check,
-                                color: Color(0xFF2B7CD3))
+                            ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
                             : null,
                         onTap: () {
-                          setState(
-                              () => _skillFilter = skill);
+                          setState(() => _skillFilter = skill);
                           Navigator.pop(context);
                         },
                       );
@@ -1002,9 +1138,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     'No skills available',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(color: Colors.grey[500]),
                   ),
                 ),
             ],
@@ -1037,8 +1171,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color:
-                      _isDarkMode ? Colors.white : Colors.black87,
+                  color: _isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
             ),
@@ -1048,10 +1181,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
               title: const Text('Auto-Translation Language'),
               subtitle: Text(
                 'Currently: ${TranslationService.getLanguageName(_autoTranslateLanguage)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[500],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
               ),
               onTap: _showLanguageSelector,
             ),
@@ -1059,14 +1189,11 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             ListTile(
               leading: const Icon(Icons.notifications),
               title: const Text('Notifications'),
-              trailing: const Icon(Icons.arrow_forward_ios,
-                  size: 16),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Notification settings'),
-                  ),
+                  const SnackBar(content: Text('Notification settings')),
                 );
               },
             ),
@@ -1109,35 +1236,29 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color:
-                      _isDarkMode ? Colors.white : Colors.black87,
+                  color: _isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
             ),
-            ...TranslationService.supportedLanguages.entries
-                .map((entry) => ListTile(
-              title: Text(entry.value),
-              trailing:
-                  _autoTranslateLanguage == entry.key
-                      ? const Icon(Icons.check,
-                          color: Color(0xFF2B7CD3))
-                      : null,
-              onTap: () {
-                setState(
-                    () =>
-                    _autoTranslateLanguage =
-                        entry.key);
-                Navigator.pop(context);
-              },
-            )),
+            ...TranslationService.supportedLanguages.entries.map(
+              (entry) => ListTile(
+                title: Text(entry.value),
+                trailing: _autoTranslateLanguage == entry.key
+                    ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
+                    : null,
+                onTap: () {
+                  setState(() => _autoTranslateLanguage = entry.key);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _showConversationOptions(
-      ChatConversation conversation) {
+  void _showConversationOptions(ChatConversation conversation) {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -1161,10 +1282,8 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
               onTap: () => Navigator.pop(context),
             ),
             ListTile(
-              leading: const Icon(Icons.delete,
-                  color: Colors.red),
-              title: const Text('Delete',
-                  style: TextStyle(color: Colors.red)),
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Delete', style: TextStyle(color: Colors.red)),
               onTap: () => Navigator.pop(context),
             ),
           ],

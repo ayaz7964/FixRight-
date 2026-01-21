@@ -30,7 +30,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ChatService _chatService = ChatService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   late String _currentUserId;
   late UserModel _currentUser;
   final _messageController = TextEditingController();
@@ -41,22 +41,43 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _currentUserId = _auth.currentUser?.uid ?? '';
+    // Use phone number from Firebase Auth or passed otherUserId (both are phone numbers)
+    _currentUserId = _auth.currentUser?.phoneNumber ?? '';
     _loadCurrentUser();
   }
 
   void _loadCurrentUser() async {
     try {
-      // Resolve profile by Firebase UID (stored as `firebaseUid`)
-      final snap = await _firestore
+      // Look up user profile using phone number as document ID
+      final userDoc = await _firestore
           .collection('users')
-          .where('firebaseUid', isEqualTo: _currentUserId)
-          .limit(1)
+          .doc(_currentUserId)
           .get();
-      if (snap.docs.isEmpty) return;
-      final doc = snap.docs.first;
+
+      if (!userDoc.exists) {
+        print('User profile not found for phone: $_currentUserId');
+        return;
+      }
+
+      final data = userDoc.data() as Map<String, dynamic>;
+      final firstName = data['firstName'] ?? '';
+      final lastName = data['lastName'] ?? '';
+
       setState(() {
-        _currentUser = UserModel.fromDoc(doc);
+        _currentUser = UserModel(
+          uid: _currentUserId,
+          phoneNumber: _currentUserId,
+          firstName: firstName,
+          lastName: lastName,
+          profileImageUrl: data['profileImageUrl'],
+          role: data['role'] ?? 'buyer',
+          preferredLanguage: data['preferredLanguage'] ?? 'en',
+          bio: data['bio'],
+          rating: (data['rating'] as num?)?.toDouble(),
+          totalReviews: data['totalReviews'] ?? 0,
+          isOnline: data['isOnline'] ?? false,
+          status: data['status'],
+        );
         _selectedLanguage = _currentUser.preferredLanguage ?? 'en';
       });
     } catch (e) {
@@ -140,7 +161,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               }
 
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     Text(
@@ -183,18 +207,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(widget.otherUserName),
-          StreamBuilder<QuerySnapshot>(
+          StreamBuilder<DocumentSnapshot>(
             stream: _firestore
                 .collection('users')
-                .where('firebaseUid', isEqualTo: widget.otherUserId)
-                .limit(1)
+                .doc(widget.otherUserId)
                 .snapshots(),
             builder: (context, snapshot) {
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              if (!snapshot.hasData || !snapshot.data!.exists) {
                 return const SizedBox.shrink();
               }
 
-              final userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+              final userData = snapshot.data!.data() as Map<String, dynamic>;
               final isOnline = userData['isOnline'] ?? false;
               final status = isOnline ? 'Online' : 'Offline';
 
@@ -239,8 +262,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Row(
-        mainAxisAlignment:
-            isSentByMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isSentByMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           if (!isSentByMe) ...[
             CircleAvatar(
@@ -283,16 +307,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     // Translated message if available
                     if (message.translationsByLanguage != null &&
                         message.translationsByLanguage!.containsKey(
-                            _selectedLanguage) &&
+                          _selectedLanguage,
+                        ) &&
                         _selectedLanguage != message.originalLanguage)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           message.translationsByLanguage![_selectedLanguage]!,
                           style: TextStyle(
-                            color: isSentByMe
-                                ? Colors.white70
-                                : Colors.black54,
+                            color: isSentByMe ? Colors.white70 : Colors.black54,
                             fontSize: 12,
                             fontStyle: FontStyle.italic,
                           ),
@@ -306,9 +329,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            DateFormat('HH:mm').format(
-                              message.timestamp.toDate(),
-                            ),
+                            DateFormat(
+                              'HH:mm',
+                            ).format(message.timestamp.toDate()),
                             style: TextStyle(
                               color: isSentByMe
                                   ? Colors.white70
@@ -322,8 +345,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               message.status == 'seen'
                                   ? Icons.done_all
                                   : message.status == 'delivered'
-                                      ? Icons.done_all
-                                      : Icons.done,
+                                  ? Icons.done_all
+                                  : Icons.done,
                               size: 14,
                               color: message.status == 'seen'
                                   ? Colors.blue
@@ -338,9 +361,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       Text(
                         'edited',
                         style: TextStyle(
-                          color: isSentByMe
-                              ? Colors.white70
-                              : Colors.grey[600],
+                          color: isSentByMe ? Colors.white70 : Colors.grey[600],
                           fontSize: 10,
                           fontStyle: FontStyle.italic,
                         ),
@@ -372,10 +393,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               children: [
                 Text(
                   'Message Language:',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -384,18 +402,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     child: Row(
                       children: TranslationService.supportedLanguages.entries
                           .map((entry) {
-                        final isSelected = _selectedLanguage == entry.key;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: FilterChip(
-                            label: Text(entry.value),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() => _selectedLanguage = entry.key);
-                            },
-                          ),
-                        );
-                      }).toList(),
+                            final isSelected = _selectedLanguage == entry.key;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: FilterChip(
+                                label: Text(entry.value),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() => _selectedLanguage = entry.key);
+                                },
+                              ),
+                            );
+                          })
+                          .toList(),
                     ),
                   ),
                 ),
@@ -527,7 +548,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             if (isSentByMe)
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                title: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _deleteMessage(message);
@@ -547,9 +571,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       targetLanguage: _selectedLanguage,
       sourceLanguage: message.originalLanguage,
     );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Translating message...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Translating message...')));
   }
 
   void _editMessage(MessageModel message) {
@@ -564,9 +588,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           autofocus: true,
           maxLines: null,
           decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
         actions: [
@@ -582,9 +604,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 messageId: message.id,
                 newText: editController.text,
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Message edited')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Message edited')));
             },
             child: const Text('Save'),
           ),
@@ -611,9 +633,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 conversationId: widget.conversationId,
                 messageId: message.id,
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Message deleted')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Message deleted')));
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
@@ -629,22 +651,36 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         title: const Text('User Info'),
         content: SizedBox(
           width: double.maxFinite,
-          child: FutureBuilder<QuerySnapshot>(
+          child: FutureBuilder<DocumentSnapshot>(
             future: _firestore
                 .collection('users')
-                .where('firebaseUid', isEqualTo: widget.otherUserId)
-                .limit(1)
+                .doc(widget.otherUserId)
                 .get(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const CircularProgressIndicator();
               }
 
-              if (snapshot.data!.docs.isEmpty) {
+              if (!snapshot.data!.exists) {
                 return const Text('User not found');
               }
 
-              final user = UserModel.fromDoc(snapshot.data!.docs.first);
+              final data = snapshot.data!.data() as Map<String, dynamic>;
+              final firstName = data['firstName'] ?? '';
+              final lastName = data['lastName'] ?? '';
+
+              final user = UserModel(
+                uid: widget.otherUserId,
+                phoneNumber: widget.otherUserId,
+                firstName: firstName,
+                lastName: lastName,
+                profileImageUrl: data['profileImageUrl'],
+                role: data['role'] ?? 'buyer',
+                preferredLanguage: data['preferredLanguage'] ?? 'en',
+                bio: data['bio'],
+                rating: (data['rating'] as num?)?.toDouble(),
+                totalReviews: data['totalReviews'] ?? 0,
+              );
 
               return Column(
                 mainAxisSize: MainAxisSize.min,
@@ -664,12 +700,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ),
                   Text('Phone: ${user.phoneNumber}'),
                   Text('Role: ${user.role.toUpperCase()}'),
-                  if (user.rating != null)
+                  if (user.rating != null && user.rating! > 0)
                     Text(
-                        'Rating: ${user.rating} ★ (${user.totalReviews} reviews)'),
-                  if (user.bio != null) Text('Bio: ${user.bio}'),
+                      'Rating: ${user.rating} ★ (${user.totalReviews} reviews)',
+                    ),
+                  if (user.bio != null && (user.bio as String).isNotEmpty)
+                    Text('Bio: ${user.bio}'),
                   Text(
-                      'Preferred Language: ${TranslationService.getLanguageName(user.preferredLanguage ?? 'en')}'),
+                    'Preferred Language: ${TranslationService.getLanguageName(user.preferredLanguage ?? 'en')}',
+                  ),
                 ],
               );
             },
@@ -689,10 +728,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return Container(
       width: 8,
       height: 8,
-      decoration: BoxDecoration(
-        color: Colors.grey,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: Colors.grey, shape: BoxShape.circle),
     );
   }
 }
