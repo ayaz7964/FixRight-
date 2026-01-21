@@ -6,6 +6,7 @@ import 'ProfileScreen.dart'; // Reuse profile screen
 import 'JobPostingScreen.dart'; // Reuse job posting/gig creation screen (for Post Services)
 import 'ManageOrdersScreen.dart'; // Orders management screen
 import 'seller_dashboard_page.dart'; // Dashboard content
+import 'MessengerHomeScreen.dart'; // Messenger home screen
 
 class SellerMainScreen extends StatefulWidget {
   final bool isSellerMode;
@@ -39,7 +40,8 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
       SellerDashboardPage(
         phoneUID: widget.phoneUID,
       ), // 0. Dashboard (Home screen replacement)
-      MessageChatBotScreen(phoneUID: widget.phoneUID), // 1. Messages
+      // MessageChatBotScreen(phoneUID: widget.phoneUID), // 1. Messages
+      MessengerHomeScreen(),
       ManageOrdersScreen(
         phoneUID: widget.phoneUID,
       ), // 2. Manage Orders/Gigs (Used as "Services")

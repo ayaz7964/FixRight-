@@ -126,23 +126,28 @@ class ChatService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) async {
-          final messages = snapshot.docs.map((doc) => MessageModel.fromDoc(doc)).toList();
-          
+          final messages = snapshot.docs
+              .map((doc) => MessageModel.fromDoc(doc))
+              .toList();
+
           // Translate messages that don't have translations yet
           for (final message in messages) {
-            if (message.translationsByLanguage == null || 
+            if (message.translationsByLanguage == null ||
                 message.translationsByLanguage!.isEmpty) {
               _translateMessageAsync(conversationId, message);
             }
           }
-          
+
           return messages;
         })
         .asyncMap((future) async => await future);
   }
 
   /// Translate a message to all supported languages and save to Firestore
-  Future<void> _translateMessageAsync(String conversationId, MessageModel message) async {
+  Future<void> _translateMessageAsync(
+    String conversationId,
+    MessageModel message,
+  ) async {
     try {
       if (message.mediaType != 'text') return; // Only translate text messages
 
@@ -166,7 +171,9 @@ class ChatService {
           .doc(message.id)
           .update({'translationsByLanguage': translations});
 
-      _log('Translated message ${message.id} to ${targetLanguages.length} languages');
+      _log(
+        'Translated message ${message.id} to ${targetLanguages.length} languages',
+      );
     } catch (e) {
       _log('Error translating message: $e');
     }

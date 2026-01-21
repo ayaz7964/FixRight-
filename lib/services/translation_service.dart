@@ -3,8 +3,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class TranslationService {
-  static const String _googleTranslateUrl = 'https://translation.googleapis.com/language/translate/v2';
-  
+  static const String _googleTranslateUrl =
+      'https://translation.googleapis.com/language/translate/v2';
+
   // Supported languages map
   static const Map<String, String> supportedLanguages = {
     'en': 'English',
@@ -35,46 +36,55 @@ class TranslationService {
       // Check cache first
       final cacheKey = '$text:$sourceLanguage:$targetLanguage';
       if (_translationCache.containsKey(cacheKey)) {
+        print('Translation cache hit: $cacheKey');
         return _translationCache[cacheKey]![targetLanguage] ?? text;
       }
 
       final apiKey = dotenv.env['GOOGLE_TRANSLATE_API_KEY'];
       if (apiKey == null || apiKey.isEmpty) {
-        print('Warning: GOOGLE_TRANSLATE_API_KEY not set in .env');
+        print('❌ ERROR: GOOGLE_TRANSLATE_API_KEY not set in .env');
         return text; // Return original if no API key
       }
 
-      final params = {
-        'key': apiKey,
-        'q': text,
-        'target': targetLanguage,
-      };
+      print('🔄 Translating: "$text" from $sourceLanguage to $targetLanguage');
+      print('📝 API Key: ${apiKey.substring(0, 10)}...');
+
+      final params = {'key': apiKey, 'q': text, 'target': targetLanguage};
 
       if (sourceLanguage != null && sourceLanguage.isNotEmpty) {
         params['source'] = sourceLanguage;
       }
 
-      final response = await http.get(
-        Uri.parse(_googleTranslateUrl).replace(queryParameters: params),
-      ).timeout(const Duration(seconds: 10));
+      final uri = Uri.parse(
+        _googleTranslateUrl,
+      ).replace(queryParameters: params);
+      print('🌐 Request URL: $uri');
+
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+
+      print('📥 Response status: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        print('📋 Response body: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final translatedText =
             json['data']['translations'][0]['translatedText'] ?? text;
 
+        print('✅ Translation successful: "$translatedText"');
+
         // Cache the result
-        _translationCache[cacheKey] = {
-          targetLanguage: translatedText,
-        };
+        _translationCache[cacheKey] = {targetLanguage: translatedText};
 
         return translatedText;
       } else {
-        print('Translation API error: ${response.statusCode}');
+        print('❌ Translation API error: ${response.statusCode}');
+        print('Response: ${response.body}');
         return text; // Return original on error
       }
     } catch (e) {
-      print('Translation error: $e');
+      print('❌ Translation error: $e');
       return text; // Return original on error
     }
   }
@@ -144,5 +154,40 @@ class TranslationService {
   static bool _containsSpanishCharacters(String text) {
     final spanishRegex = RegExp(r'[áéíóúüñ¡¿]');
     return spanishRegex.hasMatch(text);
+  }
+
+  /// Diagnose translation API setup
+  static Future<void> testTranslationAPI() async {
+    print('\n🔍 === TRANSLATION API DIAGNOSTIC ===');
+
+    final apiKey = dotenv.env['GOOGLE_TRANSLATE_API_KEY'];
+    print('1️⃣ API Key Status:');
+    if (apiKey == null || apiKey.isEmpty) {
+      print('   ❌ MISSING - Add GOOGLE_TRANSLATE_API_KEY to .env');
+      return;
+    }
+    print('   ✅ Present (${apiKey.substring(0, 10)}...)');
+
+    print('2️⃣ Testing translation...');
+    try {
+      final instance = TranslationService();
+      final result = await instance.translate(
+        text: 'Hello',
+        targetLanguage: 'es',
+      );
+      if (result == 'Hello') {
+        print('   ❌ API returned original text (not working)');
+      } else {
+        print('   ✅ Translation worked: "Hello" → "$result"');
+      }
+    } catch (e) {
+      print('   ❌ Error: $e');
+    }
+
+    print('3️⃣ Recommendations:');
+    print('   - Ensure GOOGLE_TRANSLATE_API_KEY is a valid Google Cloud key');
+    print('   - Check API quota in Google Cloud Console');
+    print('   - Verify Translation API is enabled in Google Cloud Project');
+    print('================================\n');
   }
 }

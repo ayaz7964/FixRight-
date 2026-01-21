@@ -100,10 +100,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   /// Save language preference to Firestore
   Future<void> _saveLanguagePreference(String languageCode) async {
     try {
-      await _firestore
-          .collection('users')
-          .doc(_currentUserId)
-          .update({'preferredLanguage': languageCode});
+      await _firestore.collection('users').doc(_currentUserId).update({
+        'preferredLanguage': languageCode,
+      });
       print('Language preference saved: $languageCode');
     } catch (e) {
       print('Error saving language preference: $e');
@@ -126,31 +125,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             children: [
               const Text(
                 'Select Auto-Translation Language',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView(
                   controller: scrollController,
-                  children: TranslationService.supportedLanguages.entries
-                      .map((entry) {
-                        final isSelected = _selectedLanguage == entry.key;
-                        return ListTile(
-                          title: Text(entry.value),
-                          trailing: isSelected
-                              ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
-                              : null,
-                          onTap: () {
-                            setState(() => _selectedLanguage = entry.key);
-                            _saveLanguagePreference(entry.key);
-                            Navigator.pop(context);
-                          },
-                        );
-                      })
-                      .toList(),
+                  children: TranslationService.supportedLanguages.entries.map((
+                    entry,
+                  ) {
+                    final isSelected = _selectedLanguage == entry.key;
+                    return ListTile(
+                      title: Text(entry.value),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
+                          : null,
+                      onTap: () {
+                        setState(() => _selectedLanguage = entry.key);
+                        _saveLanguagePreference(entry.key);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
                 ),
               ),
             ],
@@ -463,7 +459,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   onTap: _showTranslationLanguageSelector,
                   child: Chip(
                     label: Text(
-                      TranslationService.supportedLanguages[_selectedLanguage] ?? 'English',
+                      TranslationService
+                              .supportedLanguages[_selectedLanguage] ??
+                          'English',
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     avatar: const Icon(Icons.translate, size: 16),
