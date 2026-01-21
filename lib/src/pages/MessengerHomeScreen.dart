@@ -73,6 +73,13 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     return AppBar(
       backgroundColor: _isDarkMode ? Colors.black : Colors.white,
       elevation: 0,
+      leading: IconButton(
+        icon: Icon(
+          Icons.arrow_back,
+          color: _isDarkMode ? Colors.white : Colors.black87,
+        ),
+        onPressed: () => Navigator.pop(context),
+      ),
       title: const Text(
         'FixRight',
         style: TextStyle(
@@ -778,146 +785,134 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
           ),
         );
       },
-      child: Column(
-        children: [
-          Container(
-            color: _isDarkMode ? Colors.black : Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
+      child: Container(
+        color: _isDarkMode ? Colors.black : Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          children: [
+            // Avatar with online indicator
+            Stack(
               children: [
-                // Avatar with online indicator
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: const Color(0xFF2B7CD3),
-                      backgroundImage: otherImage != null
-                          ? NetworkImage(otherImage)
-                          : null,
-                      child: otherImage == null
-                          ? Text(
-                              otherName?.isNotEmpty == true
-                                  ? otherName!.substring(0, 1).toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                    // Online indicator
-                    FutureBuilder<DocumentSnapshot>(
-                      future: _firestore.collection('users').doc(otherId).get(),
-                      builder: (context, snap) {
-                        if (snap.hasData && snap.data?['isOnline'] == true) {
-                          return Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: _isDarkMode ? Colors.black : Colors.white,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ],
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: const Color(0xFF2B7CD3),
+                  backgroundImage: otherImage != null
+                      ? NetworkImage(otherImage)
+                      : null,
+                  child: otherImage == null
+                      ? Text(
+                          otherName?.isNotEmpty == true
+                              ? otherName!.substring(0, 1).toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
                 ),
-
-                const SizedBox(width: 12),
-
-                // Message info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Name and time
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              otherName ?? 'Unknown',
-                              style: TextStyle(
-                                fontWeight: unreadCount > 0
-                                    ? FontWeight.bold
-                                    : FontWeight.w500,
-                                fontSize: 14,
-                                color: _isDarkMode ? Colors.white : Colors.black87,
-                              ),
+                // Online indicator
+                FutureBuilder<DocumentSnapshot>(
+                  future: _firestore.collection('users').doc(otherId).get(),
+                  builder: (context, snap) {
+                    if (snap.hasData && snap.data?['isOnline'] == true) {
+                      return Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _isDarkMode ? Colors.black : Colors.white,
+                              width: 2,
                             ),
                           ),
-                          Text(
-                            _formatChatTime(conversation.lastMessageAt),
-                            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      // Last message preview
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              conversation.lastMessage.isEmpty
-                                  ? 'No messages yet'
-                                  : conversation.lastMessage,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: unreadCount > 0
-                                    ? (_isDarkMode ? Colors.white : Colors.black87)
-                                    : Colors.grey[500],
-                              ),
-                            ),
-                          ),
-                          if (unreadCount > 0)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2B7CD3),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                unreadCount > 99 ? '99+' : unreadCount.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
                 ),
               ],
             ),
-          ),
-          // Divider
-          Divider(
-            height: 1,
-            color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
-          ),
-        ],
+
+            const SizedBox(width: 12),
+
+            // Message info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Name and time
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          otherName ?? 'Ayaz Unknown',
+                          style: TextStyle(
+                            fontWeight: unreadCount > 0
+                                ? FontWeight.bold
+                                : FontWeight.w500,
+                            fontSize: 14,
+                            color: _isDarkMode ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _formatChatTime(conversation.lastMessageAt),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Last message preview
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          conversation.lastMessage,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: unreadCount > 0
+                                ? (_isDarkMode ? Colors.white : Colors.black87)
+                                : Colors.grey[500],
+                          ),
+                        ),
+                      ),
+                      if (unreadCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2B7CD3),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

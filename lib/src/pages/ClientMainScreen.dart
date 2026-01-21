@@ -241,16 +241,16 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize _widgetOptions, passing the callback to ProfileScreen
+    // Initialize _widgetOptions with 4 screens (Home, Orders, Profile, and Services)
+    // Note: MessengerHomeScreen is now navigated to separately via push
     _widgetOptions = <Widget>[
       HomePage(phoneUID: widget.phoneUID),
-      const MessengerHomeScreen(),
       OrdersPage(phoneUID: widget.phoneUID),
       ProfileScreen(
         isSellerMode: widget.isSellerMode,
         onToggleMode: widget.onToggleMode,
         phoneUID: widget.phoneUID,
-      ), // Profile screen is at content index 3
+      ), // Profile screen is at content index 2
     ];
   }
 
@@ -259,9 +259,20 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   void _onItemTapped(int index) {
     if (index == _postJobIndex) {
       _postJob(context);
+    } else if (index == 1) {
+      // Navigate to MessengerHomeScreen as a separate full screen
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const MessengerHomeScreen()),
+      );
     } else {
-      // Update the logic for 4 content screens (0, 1, 2, 3)
-      int contentIndex = index > _postJobIndex ? index - 1 : index;
+      // Map navigation indices to content indices
+      // Nav: 0→0 (Home), 1→Separate, 2→Post, 3→1 (Orders), 4→2 (Profile)
+      int contentIndex;
+      if (index > _postJobIndex) {
+        contentIndex = index - 2; // 3→1, 4→2
+      } else {
+        contentIndex = index; // 0→0
+      }
 
       setState(() {
         _selectedIndex = contentIndex;
@@ -281,8 +292,15 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
     final Color primaryColor = Colors.teal.shade700;
     final Color unselectedColor = Colors.grey.shade600;
 
-    // Check if the current navIndex corresponds to the currently selected content screen
-    int contentIndex = navIndex > _postJobIndex ? navIndex - 1 : navIndex;
+    // Map navigation indices to content indices
+    // Nav: 0→0 (Home), 1→Separate, 2→Post, 3→1 (Orders), 4→2 (Profile)
+    int contentIndex;
+    if (navIndex > _postJobIndex) {
+      contentIndex = navIndex - 2; // 3→1, 4→2
+    } else {
+      contentIndex = navIndex; // 0→0
+    }
+
     bool isSelected =
         _selectedIndex == contentIndex && navIndex != _postJobIndex;
 

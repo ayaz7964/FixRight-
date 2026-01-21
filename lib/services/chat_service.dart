@@ -151,7 +151,7 @@ class ChatService {
   /// Search conversations
   Future<List<ChatConversation>> searchConversations(String query) async {
     try {
-      final currentUserId = _auth.currentUser?.phoneNumber;
+      final currentUserId = _auth.currentUser?.uid;
       if (currentUserId == null) return [];
 
       // Get all conversations and filter locally (Firestore doesn't support complex text search easily)
