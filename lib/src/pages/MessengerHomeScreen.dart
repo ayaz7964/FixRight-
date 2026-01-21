@@ -36,6 +36,16 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     // Use phone number as user ID (FixRight architecture)
     _currentUserId = _auth.currentUser?.phoneNumber ?? '';
     _loadUserPreferences();
+    _migrateConversationData();
+  }
+
+  void _migrateConversationData() async {
+    try {
+      // Run migration to fix any corrupted conversation data
+      await _chatService.migrateCorruptedConversations();
+    } catch (e) {
+      print('Error migrating conversations: $e');
+    }
   }
 
   void _loadUserPreferences() async {
@@ -264,6 +274,30 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     return StreamBuilder<List<ChatConversation>>(
       stream: _chatService.getUserConversations(),
       builder: (context, snapshot) {
+        // Show error state
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading conversations',
+                  style: TextStyle(fontSize: 16, color: Colors.red[400]),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  snapshot.error.toString(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Show loading state
         if (!snapshot.hasData) {
           return Center(
             child: CircularProgressIndicator(color: const Color(0xFF2B7CD3)),
@@ -272,6 +306,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
 
         var conversations = snapshot.data ?? [];
 
+        // Show empty state
         if (conversations.isEmpty) {
           return Center(
             child: Column(
@@ -293,8 +328,13 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
           );
         }
 
-        return ListView.builder(
+        // Show conversations list
+        return ListView.separated(
           itemCount: conversations.length,
+          separatorBuilder: (context, index) => Divider(
+            color: _isDarkMode ? Colors.grey[800] : Colors.grey[300],
+            height: 1,
+          ),
           itemBuilder: (context, index) {
             return _buildConversationTile(conversations[index]);
           },
@@ -353,7 +393,12 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     final reviews = user['totalReviews'] ?? 0;
     final city = user['city'] ?? 'Unknown City';
     final bio = user['bio'] ?? '';
-    final userId = user['userId'];
+    final userId = user['userId'] ?? '';
+
+    // Skip rendering if userId is empty (invalid user)
+    if (userId.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return GestureDetector(
       onTap: () async {
@@ -770,6 +815,11 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     final otherImage = conversation.getOtherParticipantImage(_currentUserId);
     final unreadCount = conversation.unreadCounts[_currentUserId] ?? 0;
 
+    // Skip rendering if otherId is empty (invalid conversation)
+    if (otherId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return GestureDetector(
       onLongPress: () => _showConversationOptions(conversation),
       onTap: () {
@@ -812,31 +862,9 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                         )
                       : null,
                 ),
-                // Online indicator
-                FutureBuilder<DocumentSnapshot>(
-                  future: _firestore.collection('users').doc(otherId).get(),
-                  builder: (context, snap) {
-                    if (snap.hasData && snap.data?['isOnline'] == true) {
-                      return Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _isDarkMode ? Colors.black : Colors.white,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
+                // Online indicator - Removed FutureBuilder to avoid field errors
+                // Note: Can be re-enabled once isOnline field is consistently added to all user docs
+                const SizedBox.shrink(),
               ],
             ),
 

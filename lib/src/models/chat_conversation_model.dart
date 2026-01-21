@@ -39,22 +39,50 @@ class ChatConversation {
 
   factory ChatConversation.fromDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Helper to safely convert arrays to maps
+    Map<String, String> _arrayToMap(dynamic value) {
+      if (value is Map) {
+        return Map<String, String>.from(value);
+      } else if (value is List) {
+        // Convert array to empty map (fallback)
+        return {};
+      }
+      return {};
+    }
+
+    Map<String, String?> _arrayToMapNullable(dynamic value) {
+      if (value is Map) {
+        return Map<String, String?>.from(value);
+      } else if (value is List) {
+        // Convert array to empty map (fallback)
+        return {};
+      }
+      return {};
+    }
+
+    Map<String, int> _arrayToMapInt(dynamic value) {
+      if (value is Map) {
+        return Map<String, int>.from(value);
+      } else if (value is List) {
+        // Convert array to empty map (fallback)
+        return {};
+      }
+      return {};
+    }
+
     return ChatConversation(
       id: doc.id,
       participantIds: List<String>.from(data['participantIds'] ?? []),
-      participantNames: Map<String, String>.from(
-        data['participantNames'] ?? {},
+      participantNames: _arrayToMap(data['participantNames']),
+      participantProfileImages: _arrayToMapNullable(
+        data['participantProfileImages'],
       ),
-      participantProfileImages: Map<String, String?>.from(
-        data['participantProfileImages'] ?? {},
-      ),
-      participantRoles: Map<String, String>.from(
-        data['participantRoles'] ?? {},
-      ),
+      participantRoles: _arrayToMap(data['participantRoles']),
       lastMessage: data['lastMessage'] ?? '',
       lastMessageSenderId: data['lastMessageSenderId'],
       lastMessageAt: data['lastMessageAt'] ?? Timestamp.now(),
-      unreadCounts: Map<String, int>.from(data['unreadCounts'] ?? {}),
+      unreadCounts: _arrayToMapInt(data['unreadCounts']),
       blockedUsers: List<String>.from(data['blockedUsers'] ?? []),
     );
   }
@@ -74,5 +102,10 @@ class ChatConversation {
   String? getOtherParticipantImage(String currentUserId) {
     final otherId = getOtherParticipantId(currentUserId);
     return participantProfileImages[otherId];
+  }
+
+  String? getOtherParticipantRole(String currentUserId) {
+    final otherId = getOtherParticipantId(currentUserId);
+    return participantRoles[otherId];
   }
 }

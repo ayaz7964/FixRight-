@@ -117,6 +117,7 @@ class ChatService {
   }
 
   /// Get messages for a conversation
+  /// Automatically translates messages to all supported languages
   Stream<List<MessageModel>> getMessages(String conversationId) {
     return _firestore
         .collection('conversations')
@@ -124,13 +125,55 @@ class ChatService {
         .collection('messages')
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => MessageModel.fromDoc(doc)).toList(),
-        );
+        .map((snapshot) async {
+          final messages = snapshot.docs.map((doc) => MessageModel.fromDoc(doc)).toList();
+          
+          // Translate messages that don't have translations yet
+          for (final message in messages) {
+            if (message.translationsByLanguage == null || 
+                message.translationsByLanguage!.isEmpty) {
+              _translateMessageAsync(conversationId, message);
+            }
+          }
+          
+          return messages;
+        })
+        .asyncMap((future) async => await future);
+  }
+
+  /// Translate a message to all supported languages and save to Firestore
+  Future<void> _translateMessageAsync(String conversationId, MessageModel message) async {
+    try {
+      if (message.mediaType != 'text') return; // Only translate text messages
+
+      final targetLanguages = TranslationService.supportedLanguages.keys
+          .where((lang) => lang != message.originalLanguage)
+          .toList();
+
+      if (targetLanguages.isEmpty) return;
+
+      final translations = await _translationService.translateToMultiple(
+        text: message.originalText,
+        targetLanguages: targetLanguages,
+        sourceLanguage: message.originalLanguage,
+      );
+
+      // Save translations to Firestore
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .doc(message.id)
+          .update({'translationsByLanguage': translations});
+
+      _log('Translated message ${message.id} to ${targetLanguages.length} languages');
+    } catch (e) {
+      _log('Error translating message: $e');
+    }
   }
 
   /// Get conversations for current user
+  /// Fetches conversations without composite index and sorts client-side
   Stream<List<ChatConversation>> getUserConversations() {
     // Use phone number as user ID (FixRight architecture)
     final currentUserId = _auth.currentUser?.phoneNumber;
@@ -139,19 +182,39 @@ class ChatService {
     return _firestore
         .collection('conversations')
         .where('participantIds', arrayContains: currentUserId)
-        .orderBy('lastMessageAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => ChatConversation.fromDoc(doc))
-              .toList(),
-        );
+        .map((snapshot) {
+          try {
+            final conversations = snapshot.docs
+                .map((doc) {
+                  try {
+                    return ChatConversation.fromDoc(doc);
+                  } catch (e) {
+                    _log('Error parsing conversation ${doc.id}: $e');
+                    // Return null for invalid conversations
+                    return null;
+                  }
+                })
+                .whereType<ChatConversation>() // Filter out nulls
+                .toList();
+
+            // Sort by lastMessageAt descending (most recent first)
+            conversations.sort(
+              (a, b) => b.lastMessageAt.compareTo(a.lastMessageAt),
+            );
+
+            return conversations;
+          } catch (e) {
+            _log('Error getting conversations: $e');
+            rethrow;
+          }
+        });
   }
 
   /// Search conversations
   Future<List<ChatConversation>> searchConversations(String query) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
+      final currentUserId = _auth.currentUser?.phoneNumber;
       if (currentUserId == null) return [];
 
       // Get all conversations and filter locally (Firestore doesn't support complex text search easily)
@@ -730,5 +793,72 @@ class ChatService {
   /// Convert degrees to radians
   double _toRadians(double degrees) {
     return degrees * (3.141592653589793 / 180.0);
+  }
+
+  /// Migrate corrupted conversation data from arrays to maps
+  /// This fixes conversations that were created with array format instead of maps
+  Future<void> migrateCorruptedConversations() async {
+    try {
+      _log('Starting conversation data migration...');
+
+      final snapshot = await _firestore.collection('conversations').get();
+      int fixedCount = 0;
+
+      for (final doc in snapshot.docs) {
+        // Skip if doc ID is empty
+        if (doc.id.isEmpty) {
+          _log('Skipping conversation with empty ID');
+          continue;
+        }
+
+        final data = doc.data();
+        bool needsUpdate = false;
+        Map<String, dynamic> updates = {};
+
+        // Check and fix participantNames
+        if (data['participantNames'] is List) {
+          _log('Fixing participantNames in ${doc.id}');
+          updates['participantNames'] = {};
+          needsUpdate = true;
+        }
+
+        // Check and fix participantRoles
+        if (data['participantRoles'] is List) {
+          _log('Fixing participantRoles in ${doc.id}');
+          updates['participantRoles'] = {};
+          needsUpdate = true;
+        }
+
+        // Check and fix participantProfileImages
+        if (data['participantProfileImages'] is List) {
+          _log('Fixing participantProfileImages in ${doc.id}');
+          updates['participantProfileImages'] = {};
+          needsUpdate = true;
+        }
+
+        // Check and fix unreadCounts
+        if (data['unreadCounts'] is List) {
+          _log('Fixing unreadCounts in ${doc.id}');
+          updates['unreadCounts'] = {};
+          needsUpdate = true;
+        }
+
+        if (needsUpdate && doc.id.isNotEmpty) {
+          await _firestore
+              .collection('conversations')
+              .doc(doc.id)
+              .update(updates);
+          fixedCount++;
+        }
+      }
+
+      _log('Migration complete! Fixed $fixedCount conversations');
+    } catch (e) {
+      _log('Error during migration: $e');
+    }
+  }
+
+  void _log(String message) {
+    print('[ChatService] $message');
   }
 }

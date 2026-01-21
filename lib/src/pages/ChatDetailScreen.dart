@@ -97,6 +97,69 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     super.dispose();
   }
 
+  /// Save language preference to Firestore
+  Future<void> _saveLanguagePreference(String languageCode) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_currentUserId)
+          .update({'preferredLanguage': languageCode});
+      print('Language preference saved: $languageCode');
+    } catch (e) {
+      print('Error saving language preference: $e');
+    }
+  }
+
+  /// Show translation language selector modal
+  void _showTranslationLanguageSelector() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Select Auto-Translation Language',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  children: TranslationService.supportedLanguages.entries
+                      .map((entry) {
+                        final isSelected = _selectedLanguage == entry.key;
+                        return ListTile(
+                          title: Text(entry.value),
+                          trailing: isSelected
+                              ? const Icon(Icons.check, color: Color(0xFF2B7CD3))
+                              : null,
+                          onTap: () {
+                            setState(() => _selectedLanguage = entry.key);
+                            _saveLanguagePreference(entry.key);
+                            Navigator.pop(context);
+                          },
+                        );
+                      })
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -386,38 +449,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       padding: const EdgeInsets.all(8),
       child: Column(
         children: [
-          // Language selector
+          // Auto-Translation Language Selector - moved to settings menu
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               children: [
                 Text(
-                  'Message Language:',
+                  'Auto-Translate to: ',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: TranslationService.supportedLanguages.entries
-                          .map((entry) {
-                            final isSelected = _selectedLanguage == entry.key;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                              child: FilterChip(
-                                label: Text(entry.value),
-                                selected: isSelected,
-                                onSelected: (selected) {
-                                  setState(() => _selectedLanguage = entry.key);
-                                },
-                              ),
-                            );
-                          })
-                          .toList(),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: _showTranslationLanguageSelector,
+                  child: Chip(
+                    label: Text(
+                      TranslationService.supportedLanguages[_selectedLanguage] ?? 'English',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
+                    avatar: const Icon(Icons.translate, size: 16),
                   ),
                 ),
               ],
@@ -500,7 +549,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       userId: _currentUserId,
       senderName: _currentUser.fullName,
       senderProfileImage: _currentUser.profileImageUrl,
-      sourceLanguage: _selectedLanguage,
+      sourceLanguage: null, // Auto-detect message language
     );
 
     _scrollController.animateTo(
