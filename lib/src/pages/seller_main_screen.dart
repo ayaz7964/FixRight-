@@ -7,6 +7,7 @@ import 'JobPostingScreen.dart'; // Reuse job posting/gig creation screen (for Po
 import 'ManageOrdersScreen.dart'; // Orders management screen
 import 'seller_dashboard_page.dart'; // Dashboard content
 import 'MessengerHomeScreen.dart'; // Messenger home screen
+import '../../services/unread_message_service.dart';
 
 class SellerMainScreen extends StatefulWidget {
   final bool isSellerMode;
@@ -29,6 +30,7 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
   // There are 4 visible items, so the 'Post Services' button (which is not a content page)
   // must sit between index 1 and index 2. Let's make it nav index 2.
   final int _postGigIndex = 2;
+  final UnreadMessageService _unreadService = UnreadMessageService();
 
   late final List<Widget> _widgetOptions;
 
@@ -128,6 +130,9 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
       );
     }
 
+    // Check if this is the Message tab (navIndex == 1)
+    final isMessageTab = navIndex == 1;
+
     // Standard navigation items
     return Expanded(
       child: InkWell(
@@ -138,10 +143,50 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: isSelected ? primaryColor : unselectedColor,
-                size: 24,
+              // Icon with optional badge
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    color: isSelected ? primaryColor : unselectedColor,
+                    size: 24,
+                  ),
+                  // Unread message badge (only for Message tab)
+                  if (isMessageTab)
+                    StreamBuilder<int>(
+                      stream: _unreadService.getTotalUnreadCount(),
+                      builder: (context, snapshot) {
+                        final unreadCount = snapshot.data ?? 0;
+                        if (unreadCount == 0) return const SizedBox.shrink();
+
+                        return Positioned(
+                          right: -6,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 18,
+                              minHeight: 18,
+                            ),
+                            child: Text(
+                              unreadCount > 99 ? '99+' : unreadCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
               ),
               Text(
                 label,

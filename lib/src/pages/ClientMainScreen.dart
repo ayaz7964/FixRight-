@@ -213,6 +213,7 @@ import 'MessengerHomeScreen.dart';
 import 'orders_page.dart';
 import 'ProfileScreen.dart';
 import 'JobPostingScreen.dart';
+import '../../services/unread_message_service.dart';
 
 class ClientMainScreen extends StatefulWidget {
   // NEW: Add parameters to receive mode state and callback
@@ -234,6 +235,7 @@ class ClientMainScreen extends StatefulWidget {
 class _ClientMainScreenState extends State<ClientMainScreen> {
   int _selectedIndex = 0;
   final int _postJobIndex = 2;
+  final UnreadMessageService _unreadService = UnreadMessageService();
 
   // NOTE: _widgetOptions must be defined AFTER initState to access widget properties
   late final List<Widget> _widgetOptions;
@@ -347,6 +349,9 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
       );
     }
 
+    // Check if this is the Message tab (navIndex == 1)
+    final isMessageTab = navIndex == 1;
+
     return Expanded(
       child: InkWell(
         onTap: () => _onItemTapped(navIndex),
@@ -356,10 +361,50 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: isSelected ? primaryColor : unselectedColor,
-                size: 24,
+              // Icon with optional badge
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    color: isSelected ? primaryColor : unselectedColor,
+                    size: 24,
+                  ),
+                  // Unread message badge (only for Message tab)
+                  if (isMessageTab)
+                    StreamBuilder<int>(
+                      stream: _unreadService.getTotalUnreadCount(),
+                      builder: (context, snapshot) {
+                        final unreadCount = snapshot.data ?? 0;
+                        if (unreadCount == 0) return const SizedBox.shrink();
+
+                        return Positioned(
+                          right: -6,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 18,
+                              minHeight: 18,
+                            ),
+                            child: Text(
+                              unreadCount > 99 ? '99+' : unreadCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
               ),
               Text(
                 label,
