@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import '../models/enhanced_message_model.dart';
 import '../models/user_model.dart';
 import '../../services/chat_service.dart';
@@ -95,6 +94,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       isTyping: false,
     );
     super.dispose();
+  }
+
+  /// Format timestamp to 12-hour format with AM/PM (WhatsApp style)
+  String _formatMessageTime(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final ampm = date.hour < 12 ? 'AM' : 'PM';
+    return '$hour:$minute $ampm';
   }
 
   /// Save language preference to Firestore
@@ -278,16 +286,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
               final userData = snapshot.data!.data() as Map<String, dynamic>;
               final isOnline = userData['isOnline'] ?? false;
-              final lastSeen = userData['lastSeen'] as Timestamp?;
-              
-              String status;
-              if (isOnline) {
-                status = 'Online';
-              } else if (lastSeen != null) {
-                status = _formatLastSeen(lastSeen);
-              } else {
-                status = 'Offline';
-              }
+              final status = isOnline ? 'Online' : 'Offline';
 
               return Text(
                 status,
@@ -397,9 +396,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            DateFormat(
-                              'HH:mm',
-                            ).format(message.timestamp.toDate()),
+                            _formatMessageTime(message.timestamp),
                             style: TextStyle(
                               color: isSentByMe
                                   ? Colors.white70
@@ -446,121 +443,93 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildInputArea() {
-    return SafeArea(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey[300]!)),
-        ),
-        padding: EdgeInsets.only(
-          left: 8,
-          right: 8,
-          top: 8,
-          bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 8 : 8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Auto-Translation Language Selector
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                children: [
-                  Text(
-                    'Auto-Translate to: ',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(width: 4),
-                  InkWell(
-                    onTap: _showTranslationLanguageSelector,
-                    child: Chip(
-                      label: Text(
-                        TranslationService
-                                .supportedLanguages[_selectedLanguage] ??
-                            'English',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      avatar: const Icon(Icons.translate, size: 16),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          // Auto-Translation Language Selector - moved to settings menu
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              children: [
+                Text(
+                  'Auto-Translate to: ',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: _showTranslationLanguageSelector,
+                  child: Chip(
+                    label: Text(
+                      TranslationService
+                              .supportedLanguages[_selectedLanguage] ??
+                          'English',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
+                    avatar: const Icon(Icons.translate, size: 16),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
 
-            // Message input
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.emoji_emotions_outlined),
-                    onPressed: () {
-                      // TODO: Implement emoji picker
+          // Message input
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.emoji_emotions_outlined),
+                  onPressed: () {
+                    // TODO: Implement emoji picker
+                  },
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Type a message...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                    ),
+                    maxLines: null,
+                    onChanged: (value) {
+                      if (value.isEmpty && _isTyping) {
+                        _chatService.sendTypingIndicator(
+                          conversationId: widget.conversationId,
+                          userId: _currentUserId,
+                          isTyping: false,
+                        );
+                        setState(() => _isTyping = false);
+                      } else if (value.isNotEmpty && !_isTyping) {
+                        _chatService.sendTypingIndicator(
+                          conversationId: widget.conversationId,
+                          userId: _currentUserId,
+                          isTyping: true,
+                        );
+                        setState(() => _isTyping = true);
+                      }
                     },
                   ),
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 150),
-                      child: TextField(
-                        controller: _messageController,
-                        decoration: InputDecoration(
-                          hintText: 'Type a message...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          isDense: true,
-                        ),
-                        maxLines: null,
-                        keyboardType: TextInputType.multiline,
-                        textInputAction: TextInputAction.newline,
-                        onChanged: (value) {
-                          if (value.isEmpty && _isTyping) {
-                            _chatService.sendTypingIndicator(
-                              conversationId: widget.conversationId,
-                              userId: _currentUserId,
-                              isTyping: false,
-                            );
-                            setState(() => _isTyping = false);
-                          } else if (value.isNotEmpty && !_isTyping) {
-                            _chatService.sendTypingIndicator(
-                              conversationId: widget.conversationId,
-                              userId: _currentUserId,
-                              isTyping: true,
-                            );
-                            setState(() => _isTyping = true);
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                  // Send button with circular background
-                  Container(
-                    margin: const EdgeInsets.only(left: 4),
-                    decoration: BoxDecoration(
-                      color: _messageController.text.trim().isEmpty
-                          ? Colors.grey[300]
-                          : const Color(0xFF2B7CD3),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.send_rounded),
-                      color: Colors.white,
-                      onPressed: _messageController.text.trim().isEmpty
-                          ? null
-                          : _sendMessage,
-                      tooltip: 'Send message',
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  color: const Color(0xFF2B7CD3),
+                  onPressed: _sendMessage,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -814,29 +783,5 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       height: 8,
       decoration: BoxDecoration(color: Colors.grey, shape: BoxShape.circle),
     );
-  }
-
-  /// Format last seen timestamp for presence display
-  String _formatLastSeen(Timestamp timestamp) {
-    final lastSeenDate = timestamp.toDate();
-    final now = DateTime.now();
-    final difference = now.difference(lastSeenDate);
-
-    if (difference.inMinutes < 1) {
-      return 'Last seen just now';
-    } else if (difference.inMinutes < 60) {
-      return 'Last seen ${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return 'Last seen ${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      final time = DateFormat('HH:mm').format(lastSeenDate);
-      return 'Last seen yesterday at $time';
-    } else if (difference.inDays < 7) {
-      final time = DateFormat('HH:mm').format(lastSeenDate);
-      final day = DateFormat('EEEE').format(lastSeenDate);
-      return 'Last seen $day at $time';
-    } else {
-      return 'Last seen ${DateFormat('MMM d').format(lastSeenDate)}';
-    }
   }
 }

@@ -151,99 +151,97 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<Map<String, String>> getCityCountry(
-    double latitude, double longitude) async {
-  try {
-    List<Placemark> placemarks =
-        await placemarkFromCoordinates(latitude, longitude);
-
-    if (placemarks.isNotEmpty) {
-      return {
-        'city': placemarks.first.locality ??
-            placemarks.first.subAdministrativeArea ??
-            'Unknown City',
-        'country': placemarks.first.country ?? 'Unknown Country',
-      };
-    }
-  } catch (e) {
-    debugPrint('Reverse geocoding failed: $e');
-  }
-
-  return {
-    'city': 'Unknown City',
-    'country': 'Unknown Country',
-  };
-}
-
-
-Future<void> createNewUser(String uid) async {
-  double latitude = 0.0;
-  double longitude = 0.0;
-  String city = 'Unknown City';
-  String country = 'Unknown Country';
-
-  try {
-    LocationPermission permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse) {
-
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        latitude,
+        longitude,
       );
 
-      latitude = position.latitude;
-      longitude = position.longitude;
-
-      /// 🔁 Reverse Geocoding
-      final locationData = await getCityCountry(latitude, longitude);
-      city = locationData['city']!;
-      country = locationData['country']!;
-
-      /// 🔴 Start live tracking
-      _startLiveLocationTracking(uid);
+      if (placemarks.isNotEmpty) {
+        return {
+          'city':
+              placemarks.first.locality ??
+              placemarks.first.subAdministrativeArea ??
+              'Unknown City',
+          'country': placemarks.first.country ?? 'Unknown Country',
+        };
+      }
+    } catch (e) {
+      debugPrint('Reverse geocoding failed: $e');
     }
 
-    await FirebaseFirestore.instance.collection('users').doc(uid).set({
-      'uid': uid,
-      'mobile': uid,
-      'firstName': 'User',
-      'lastName': 'Account',
-      'city': city,
-      'country': country,
-      'Role': 'Buyer',
-      'latitude': latitude,
-      'longitude': longitude,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    _navigateToHome(uid);
-  } catch (e) {
-    debugPrint('Error creating user: $e');
+    return {'city': 'Unknown City', 'country': 'Unknown Country'};
   }
-}
 
+  Future<void> createNewUser(String uid) async {
+    double latitude = 0.0;
+    double longitude = 0.0;
+    String city = 'Unknown City';
+    String country = 'Unknown Country';
 
-void _startLiveLocationTracking(String uid) {
-  Geolocator.getPositionStream(
-    locationSettings: const LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
-    ),
-  ).listen((Position position) {
-    FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'liveLocation': {
-        'lat': position.latitude,
-        'lng': position.longitude,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        latitude = position.latitude;
+        longitude = position.longitude;
+
+        /// 🔁 Reverse Geocoding
+        final locationData = await getCityCountry(latitude, longitude);
+        city = locationData['city']!;
+        country = locationData['country']!;
+
+        /// 🔴 Start live tracking
+        _startLiveLocationTracking(uid);
+      }
+
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'uid': uid,
+        'mobile': uid,
+        'firstName': 'User',
+        'lastName': 'Account',
+        'city': city,
+        'country': country,
+        'Role': 'Buyer',
+        'latitude': latitude,
+        'longitude': longitude,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      _navigateToHome(uid);
+    } catch (e) {
+      debugPrint('Error creating user: $e');
+    }
+  }
+
+  void _startLiveLocationTracking(String uid) {
+    Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen((Position position) {
+      FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'liveLocation': {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+      });
     });
-  });
-}
-
+  }
 
   // /// Start live location tracking for a user
   // void _startLiveLocationTracking(String uid) {
@@ -673,16 +671,18 @@ void _startLiveLocationTracking(String uid) {
                     style: TextStyle(color: Colors.black87),
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/home');
-                  },
-                  child: const Text(
-                    'Navigate Home Page    ',
-                    style: TextStyle(color: Colors.black87),
-                  ),
-                ),
-                const SizedBox(height: 20),
+                // TextButton(
+                //   onPressed: () {
+                //     // Navigator.pushReplacementNamed(context, '/home');
+                //     // Navigator.pushNamed(context, '/home');
+                //     _navigateToHome('+923163797857');
+                //   },
+                //   child: const Text(
+                //     'Navigate Home Page    ',
+                //     style: TextStyle(color: Colors.black87),
+                //   ),
+                // ),
+                // const SizedBox(height: 20),
               ],
             ),
           ),

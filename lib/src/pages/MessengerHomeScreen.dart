@@ -974,12 +974,15 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
   String _formatChatTime(Timestamp timestamp) {
     final date = timestamp.toDate();
     final now = DateTime.now();
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final ampm = date.hour < 12 ? 'AM' : 'PM';
 
     if (date.day == now.day &&
         date.month == now.month &&
         date.year == now.year) {
-      // Today
-      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      // Today - 12-hour format with AM/PM (WhatsApp style)
+      return '$hour:$minute $ampm';
     } else if (date.day == now.day - 1 &&
         date.month == now.month &&
         date.year == now.year) {
