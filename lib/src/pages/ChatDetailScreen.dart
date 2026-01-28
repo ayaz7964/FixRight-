@@ -43,6 +43,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     // Use phone number from Firebase Auth or passed otherUserId (both are phone numbers)
     _currentUserId = _auth.currentUser?.phoneNumber ?? '';
     _loadCurrentUser();
+
+    // Mark all unread messages as read when chat is opened
+    _chatService.markMessagesAsRead(widget.conversationId);
   }
 
   void _loadCurrentUser() async {
@@ -406,16 +409,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           ),
                           if (isSentByMe) ...[
                             const SizedBox(width: 4),
+                            // Show read indicator for sent messages
+                            // Use isRead flag for WhatsApp-like read receipts
                             Icon(
-                              message.status == 'seen'
-                                  ? Icons.done_all
-                                  : message.status == 'delivered'
-                                  ? Icons.done_all
-                                  : Icons.done,
+                              message.isRead
+                                  ? Icons
+                                        .done_all // Double check = message read
+                                  : Icons
+                                        .done_all, // Double check = message delivered
                               size: 14,
-                              color: message.status == 'seen'
-                                  ? Colors.blue
-                                  : Colors.white70,
+                              color: message.isRead
+                                  ? Colors
+                                        .lightBlue // Blue when read
+                                  : Colors.white70, // Gray when only delivered
                             ),
                           ],
                         ],

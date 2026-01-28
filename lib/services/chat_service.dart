@@ -59,6 +59,8 @@ class ChatService {
   }
 
   /// Send a message
+  /// Sets isRead=false by default, meaning the receiver hasn't read it yet
+  /// Increments unreadCount for the receiver only (not the sender)
   Future<String> sendMessage({
     required String conversationId,
     required String text,
@@ -70,6 +72,31 @@ class ChatService {
     String? sourceLanguage,
   }) async {
     try {
+      // Get conversation to find the receiver ID first
+      final conversationDoc = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
+
+      if (!conversationDoc.exists) {
+        throw Exception('Conversation not found');
+      }
+
+      final conversationData = conversationDoc.data() as Map<String, dynamic>;
+      final participantIds = List<String>.from(
+        conversationData['participantIds'] ?? [],
+      );
+
+      // Get the receiver ID (the other participant)
+      final receiverId = participantIds.firstWhere(
+        (id) => id != userId,
+        orElse: () => '',
+      );
+
+      if (receiverId.isEmpty) {
+        throw Exception('Receiver not found in conversation');
+      }
+
       final messageId = _firestore
           .collection('conversations')
           .doc(conversationId)
@@ -81,10 +108,12 @@ class ChatService {
       final detectedLanguage =
           sourceLanguage ?? await _translationService.detectLanguage(text);
 
+      // Create message with receiverId for read-receipt tracking
       final message = MessageModel(
         id: messageId,
         conversationId: conversationId,
         senderId: userId,
+        receiverId: receiverId, // Store receiver for read-receipt logic
         senderName: senderName,
         senderProfileImage: senderProfileImage,
         originalText: text,
@@ -93,6 +122,7 @@ class ChatService {
         originalLanguage: detectedLanguage,
         timestamp: Timestamp.now(),
         status: 'sent',
+        isRead: false, // Message starts as unread for receiver
       );
 
       await _firestore
@@ -102,7 +132,12 @@ class ChatService {
           .doc(messageId)
           .set(message.toMap());
 
-      // Update conversation's last message
+      // Increment unreadCount for receiver only (sender doesn't get unread count)
+      await _firestore.collection('conversations').doc(conversationId).update({
+        'unreadCounts.$receiverId': FieldValue.increment(1),
+      });
+
+      // Update conversation's last message metadata
       await _firestore.collection('conversations').doc(conversationId).update({
         'lastMessage': text,
         'lastMessageSenderId': userId,
@@ -270,6 +305,57 @@ class ChatService {
       });
     } catch (e) {
       print('Error marking conversation as seen: $e');
+    }
+  }
+
+  /// Mark all unread messages as read for current user
+  /// WhatsApp-like behavior: when user opens a chat, all unread messages become read
+  /// Uses batch writes for efficiency and updates lastReadAt timestamp
+  Future<void> markMessagesAsRead(String conversationId) async {
+    try {
+      final currentUserId = _auth.currentUser?.phoneNumber;
+      if (currentUserId == null) return;
+
+      // Get all unread messages where current user is the receiver
+      final unreadMessages = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .where('receiverId', isEqualTo: currentUserId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      if (unreadMessages.docs.isEmpty) {
+        // Even if no unread messages, update lastReadAt for read-receipt tracking
+        await _firestore.collection('conversations').doc(conversationId).update(
+          {'lastReadAt.$currentUserId': Timestamp.now()},
+        );
+        return;
+      }
+
+      // Use batch write for efficiency (up to 500 operations per batch)
+      final batch = _firestore.batch();
+
+      // Mark all unread messages as read
+      for (var doc in unreadMessages.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+
+      // Commit the batch for message updates
+      await batch.commit();
+
+      // Update conversation-level read tracking
+      // Reset unreadCount and set lastReadAt timestamp for sender read-receipt
+      await _firestore.collection('conversations').doc(conversationId).update({
+        'unreadCounts.$currentUserId': 0,
+        'lastReadAt.$currentUserId': Timestamp.now(),
+      });
+
+      print(
+        'Marked ${unreadMessages.docs.length} messages as read for $conversationId',
+      );
+    } catch (e) {
+      print('Error marking messages as read: $e');
     }
   }
 

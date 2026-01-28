@@ -10,6 +10,8 @@ class ChatConversation {
   final String? lastMessageSenderId;
   final Timestamp lastMessageAt;
   final Map<String, int> unreadCounts; // userId -> unreadCount
+  final Map<String, Timestamp>?
+  lastReadAt; // userId -> timestamp when they read the chat
   final List<String> blockedUsers;
 
   ChatConversation({
@@ -22,6 +24,7 @@ class ChatConversation {
     this.lastMessageSenderId,
     required this.lastMessageAt,
     required this.unreadCounts,
+    this.lastReadAt,
     this.blockedUsers = const [],
   });
 
@@ -34,6 +37,7 @@ class ChatConversation {
     'lastMessageSenderId': lastMessageSenderId,
     'lastMessageAt': lastMessageAt,
     'unreadCounts': unreadCounts,
+    'lastReadAt': lastReadAt,
     'blockedUsers': blockedUsers,
   };
 
@@ -83,8 +87,24 @@ class ChatConversation {
       lastMessageSenderId: data['lastMessageSenderId'],
       lastMessageAt: data['lastMessageAt'] ?? Timestamp.now(),
       unreadCounts: _arrayToMapInt(data['unreadCounts']),
+      lastReadAt: _parseLastReadAt(data['lastReadAt']),
       blockedUsers: List<String>.from(data['blockedUsers'] ?? []),
     );
+  }
+
+  /// Helper to parse lastReadAt field (userId -> Timestamp)
+  static Map<String, Timestamp>? _parseLastReadAt(dynamic value) {
+    if (value == null) return null;
+    if (value is Map) {
+      final result = <String, Timestamp>{};
+      for (var entry in (value as Map).entries) {
+        if (entry.value is Timestamp) {
+          result[entry.key.toString()] = entry.value as Timestamp;
+        }
+      }
+      return result.isNotEmpty ? result : null;
+    }
+    return null;
   }
 
   String getOtherParticipantId(String currentUserId) {
