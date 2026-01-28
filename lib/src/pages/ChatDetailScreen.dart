@@ -317,30 +317,46 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   /// Make a direct phone call using the system phone dialer
-  /// The receiverId is the user's phone number (UID)
+  /// The phoneNumber should be the user's phone number (UID format: +923XXXXXXXXX)
   Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    // Sanitize phone number: remove spaces, dashes, and parentheses
+    final sanitizedNumber = phoneNumber.replaceAll(RegExp(r'[\s\-()]+'), '');
+
+    // Ensure the number is in proper international format
+    // If it starts with 0, convert to +92 (Pakistan example - adjust for your region)
+    final formattedNumber = sanitizedNumber.startsWith('0')
+        ? '+92${sanitizedNumber.substring(1)}'
+        : sanitizedNumber;
+
+    // Create tel URI
+    final Uri launchUri = Uri(scheme: 'tel', path: formattedNumber);
 
     try {
+      // Check if the tel scheme can be launched
       if (await canLaunchUrl(launchUri)) {
-        await launchUrl(launchUri);
+        // Launch with externalApplication mode to open system phone app
+        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
+        // Phone calling not supported on this device
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Could not launch phone call to $phoneNumber'),
-              duration: const Duration(seconds: 2),
+              content: Text(
+                'Phone calling not supported. Number: $formattedNumber',
+              ),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
       }
     } catch (e) {
-      print('Error making phone call: $e');
+      // Log error for debugging
+      print('Error making phone call to $formattedNumber: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error making phone call'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text('Call failed: ${e.toString()}'),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
