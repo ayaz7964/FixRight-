@@ -26,13 +26,23 @@ class FixRightApp extends StatefulWidget {
 class _FixRightAppState extends State<FixRightApp> with WidgetsBindingObserver {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final UserPresenceService _presenceService = UserPresenceService();
+  bool _hasInitializedPresence = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Mark user as online when app starts
-    _presenceService.updatePresence(true);
+    // Initialize presence if user is already logged in
+    _initializePresenceIfNeeded();
+  }
+
+  /// Initialize presence for authenticated users
+  /// Ensures presence is set on app startup
+  Future<void> _initializePresenceIfNeeded() async {
+    if (_auth.currentUser != null && !_hasInitializedPresence) {
+      _hasInitializedPresence = true;
+      await _presenceService.initializePresence();
+    }
   }
 
   @override

@@ -9,6 +9,53 @@ class UserPresenceService {
 
   static const String _presenceCollection = 'userPresence';
 
+  /// Initialize presence on app startup or user login
+  /// Sets user as online and creates presence document if needed
+  /// Should be called once after user authentication
+  Future<void> initializePresence() async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
+      final phoneUID = currentUser.phoneNumber;
+      if (phoneUID == null || phoneUID.isEmpty) return;
+
+      // Create presence document with online status
+      await _firestore.collection(_presenceCollection).doc(phoneUID).set({
+        'isOnline': true,
+        'lastSeen': FieldValue.serverTimestamp(),
+        'updatedAt': Timestamp.now(),
+      }, SetOptions(merge: true));
+
+      print('Presence initialized for user: $phoneUID');
+    } catch (e) {
+      print('Error initializing presence: $e');
+    }
+  }
+
+  /// Mark user as offline (called on logout)
+  /// Must complete before signing out user from Firebase Auth
+  Future<void> setOfflineBeforeLogout() async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
+      final phoneUID = currentUser.phoneNumber;
+      if (phoneUID == null || phoneUID.isEmpty) return;
+
+      // Set offline with current timestamp
+      await _firestore.collection(_presenceCollection).doc(phoneUID).update({
+        'isOnline': false,
+        'lastSeen': FieldValue.serverTimestamp(),
+      });
+
+      print('User marked offline before logout: $phoneUID');
+    } catch (e) {
+      print('Error setting offline: $e');
+      // Don't block logout even if presence update fails
+    }
+  }
+
   /// Update user presence status
   /// Called when app resumes (online) or pauses (offline)
   Future<void> updatePresence(bool isOnline) async {

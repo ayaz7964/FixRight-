@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:country_picker/country_picker.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
+import '../../services/user_presence_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geocoding/geocoding.dart';
@@ -423,8 +424,18 @@ class _LoginPageState extends State<LoginPage> {
   //   }
   // }
 
-  void _navigateToHome(String uid) {
+  void _navigateToHome(String uid) async {
     setState(() => isLoading = false);
+
+    // Initialize user presence after successful login
+    try {
+      final presenceService = UserPresenceService();
+      await presenceService.initializePresence();
+    } catch (e) {
+      print('Error initializing presence: $e');
+      // Continue navigation even if presence initialization fails
+    }
+
     Navigator.pushReplacementNamed(context, '/home');
   }
 

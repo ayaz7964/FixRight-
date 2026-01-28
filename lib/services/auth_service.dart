@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'user_presence_service.dart';
 
 typedef CodeSentCallback = void Function(String verificationId);
 typedef VerificationFailedCallback = void Function(FirebaseAuthException e);
@@ -204,7 +205,18 @@ class AuthService {
   }
 
   /// Sign out the user
+  /// First marks user as offline, then signs out from Firebase
   Future<void> signOut() async {
+    try {
+      // Mark user as offline before signing out
+      final presenceService = UserPresenceService();
+      await presenceService.setOfflineBeforeLogout();
+    } catch (e) {
+      print('Error updating presence on logout: $e');
+      // Continue with logout even if presence update fails
+    }
+
+    // Sign out from Firebase Auth
     await _auth.signOut();
   }
 }
