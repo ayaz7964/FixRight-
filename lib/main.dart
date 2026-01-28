@@ -1,6 +1,5 @@
 ﻿import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'src/components/LoginPage.dart';
@@ -8,6 +7,7 @@ import 'src/components/SIgnupPage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'src/pages/app_mode_switcher.dart';
 import 'services/user_session.dart';
+import 'services/user_presence_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,71 +24,41 @@ class FixRightApp extends StatefulWidget {
 }
 
 class _FixRightAppState extends State<FixRightApp> with WidgetsBindingObserver {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final UserPresenceService _presenceService = UserPresenceService();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _updatePresence(true); // Set online when app starts
+    // Mark user as online when app starts
+    _presenceService.updatePresence(true);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _updatePresence(false); // Set offline when app closes
+    // Mark user as offline when app closes
+    _presenceService.updatePresence(false);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     switch (state) {
       case AppLifecycleState.resumed:
-        // App is in foreground
-        _updatePresence(true);
+        // App is in foreground - mark as online
+        _presenceService.updatePresence(true);
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
-        // App is in background or closing
-        _updatePresence(false);
-        break;
       case AppLifecycleState.hidden:
-        // App is hidden (Flutter 3.13+)
-        _updatePresence(false);
+        // App is in background or closing - mark as offline
+        _presenceService.updatePresence(false);
         break;
-    }
-  }
-
-  /// Update user presence status in Firestore
-  Future<void> _updatePresence(bool isOnline) async {
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return;
-
-      final phoneUID = currentUser.phoneNumber;
-      if (phoneUID == null || phoneUID.isEmpty) return;
-
-      final updates = <String, dynamic>{
-        'isOnline': isOnline,
-        'lastSeen': FieldValue.serverTimestamp(),
-      };
-
-      if (!isOnline) {
-        updates['status'] = 'offline';
-      } else {
-        updates['status'] = 'online';
-      }
-
-      await _firestore.collection('users').doc(phoneUID).update(updates);
-      
-      print('Presence updated: ${isOnline ? "Online" : "Offline"} for $phoneUID');
-    } catch (e) {
-      print('Error updating presence: $e');
-      // Silently fail - don't crash app if presence update fails
     }
   }
 

@@ -20,7 +20,6 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   late String _currentUserId;
-  int _currentTabIndex = 0;
   String _searchQuery = '';
   String _userTypeFilter = 'all'; // all, buyer, seller
   String _locationFilter = 'all'; // all, nearest, sameCity
@@ -73,38 +72,20 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(),
-      body: _currentTabIndex == 0 ? _buildChatsTab() : _buildCallsTab(),
-      bottomNavigationBar: _buildBottomNav(),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: _isDarkMode ? Colors.black : Colors.white,
-      elevation: 0,
-      leading: IconButton(
-        icon: Icon(
-          Icons.arrow_back,
-          color: _isDarkMode ? Colors.white : Colors.black87,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Messenger',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2B7CD3),
+          ),
         ),
-        onPressed: () => Navigator.pop(context),
+        centerTitle: true,
       ),
-      title: const Text(
-        'FixRight',
-        style: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF2B7CD3),
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.more_vert),
-          onPressed: _showSettingsMenu,
-          color: _isDarkMode ? Colors.white : Colors.black87,
-        ),
-      ],
+      body: _buildChatsTab(),
     );
   }
 
@@ -942,32 +923,6 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildCallsTab() {
-    return const CallsListScreen();
-  }
-
-  Widget _buildBottomNav() {
-    return BottomNavigationBar(
-      currentIndex: _currentTabIndex,
-      onTap: (index) => setState(() => _currentTabIndex = index),
-      backgroundColor: _isDarkMode ? Colors.black : Colors.white,
-      selectedItemColor: const Color(0xFF2B7CD3),
-      unselectedItemColor: Colors.grey,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.mail_outline),
-          activeIcon: Icon(Icons.mail),
-          label: 'Chats',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.call_outlined),
-          activeIcon: Icon(Icons.call),
-          label: 'Calls',
-        ),
-      ],
     );
   }
 

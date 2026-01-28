@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/enhanced_message_model.dart';
 import '../models/user_model.dart';
 import '../../services/chat_service.dart';
 import '../../services/translation_service.dart';
+import '../../services/user_presence_service.dart';
 import 'AudioCallScreen.dart';
 
 class ChatDetailScreen extends StatefulWidget {
@@ -29,6 +31,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ChatService _chatService = ChatService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final UserPresenceService _presenceService = UserPresenceService();
 
   late String _currentUserId;
   late UserModel _currentUser;
@@ -277,19 +280,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(widget.otherUserName),
-          StreamBuilder<DocumentSnapshot>(
-            stream: _firestore
-                .collection('users')
-                .doc(widget.otherUserId)
-                .snapshots(),
+          // Real-time presence status using UserPresenceService
+          StreamBuilder<String>(
+            stream: _presenceService.getUserStatusStream(widget.otherUserId),
             builder: (context, snapshot) {
-              if (!snapshot.hasData || !snapshot.data!.exists) {
-                return const SizedBox.shrink();
-              }
-
-              final userData = snapshot.data!.data() as Map<String, dynamic>;
-              final isOnline = userData['isOnline'] ?? false;
-              final status = isOnline ? 'Online' : 'Offline';
+              final status = snapshot.data ?? 'Offline';
+              final isOnline = status == 'Online';
 
               return Text(
                 status,
@@ -304,26 +300,51 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ],
       ),
       actions: [
+        // Direct phone call button - uses device phone app
         IconButton(
           icon: const Icon(Icons.call),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AudioCallScreen(
-                  receiverId: widget.otherUserId,
-                  receiverName: widget.otherUserName,
-                ),
-              ),
-            );
-          },
+          tooltip: 'Call ${widget.otherUserName}',
+          onPressed: () => _makePhoneCall(widget.otherUserId),
         ),
+        // Chat info button
         IconButton(
           icon: const Icon(Icons.info_outline),
+          tooltip: 'Chat info',
           onPressed: () => _showUserInfo(),
         ),
       ],
     );
+  }
+
+  /// Make a direct phone call using the system phone dialer
+  /// The receiverId is the user's phone number (UID)
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not launch phone call to $phoneNumber'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error making phone call: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error making phone call'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildMessageBubble(BuildContext context, MessageModel message) {

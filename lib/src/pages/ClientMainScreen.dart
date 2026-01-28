@@ -243,16 +243,16 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize _widgetOptions with 4 screens (Home, Orders, Profile, and Services)
-    // Note: MessengerHomeScreen is now navigated to separately via push
+    // Initialize _widgetOptions with 4 screens: Home, Messages, Orders, Profile
     _widgetOptions = <Widget>[
       HomePage(phoneUID: widget.phoneUID),
+      const MessengerHomeScreen(), // Messages screen at content index 1
       OrdersPage(phoneUID: widget.phoneUID),
       ProfileScreen(
         isSellerMode: widget.isSellerMode,
         onToggleMode: widget.onToggleMode,
         phoneUID: widget.phoneUID,
-      ), // Profile screen is at content index 2
+      ), // Profile screen is at content index 3
     ];
   }
 
@@ -261,19 +261,14 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   void _onItemTapped(int index) {
     if (index == _postJobIndex) {
       _postJob(context);
-    } else if (index == 1) {
-      // Navigate to MessengerHomeScreen as a separate full screen
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const MessengerHomeScreen()),
-      );
     } else {
       // Map navigation indices to content indices
-      // Nav: 0→0 (Home), 1→Separate, 2→Post, 3→1 (Orders), 4→2 (Profile)
+      // Nav: 0→0 (Home), 1→1 (Messages), 2→Post, 3→2 (Orders), 4→3 (Profile)
       int contentIndex;
       if (index > _postJobIndex) {
-        contentIndex = index - 2; // 3→1, 4→2
+        contentIndex = index - 1; // 3→2, 4→3
       } else {
-        contentIndex = index; // 0→0
+        contentIndex = index; // 0→0, 1→1
       }
 
       setState(() {
@@ -295,12 +290,12 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
     final Color unselectedColor = Colors.grey.shade600;
 
     // Map navigation indices to content indices
-    // Nav: 0→0 (Home), 1→Separate, 2→Post, 3→1 (Orders), 4→2 (Profile)
+    // Nav: 0→0 (Home), 1→1 (Messages), 2→Post, 3→2 (Orders), 4→3 (Profile)
     int contentIndex;
     if (navIndex > _postJobIndex) {
-      contentIndex = navIndex - 2; // 3→1, 4→2
+      contentIndex = navIndex - 1; // 3→2, 4→3
     } else {
-      contentIndex = navIndex; // 0→0
+      contentIndex = navIndex; // 0→0, 1→1
     }
 
     bool isSelected =
