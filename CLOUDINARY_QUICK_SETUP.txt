@@ -1,0 +1,83 @@
+📋 CLOUDINARY SETUP - STEP BY STEP
+
+═══════════════════════════════════════════════════════════
+
+STEP 1: CREATE CLOUDINARY ACCOUNT
+
+1. Go to https://cloudinary.com/
+2. Click "Sign Up" 
+3. Create free account
+4. Verify email
+5. Login to dashboard
+
+═══════════════════════════════════════════════════════════
+
+STEP 2: GET YOUR CLOUD NAME
+
+1. On dashboard, you'll see "Dashboard" section
+2. Look for "API Environment variable"
+3. You'll see: cloudinary://API_KEY:API_SECRET@YOUR_CLOUD_NAME
+4. Copy YOUR_CLOUD_NAME (just the name, not the whole string)
+   Example: dxj9qp8n2
+
+═══════════════════════════════════════════════════════════
+
+STEP 3: CREATE UNSIGNED UPLOAD PRESET
+
+1. Click "Settings" (gear icon)
+2. Go to "Upload" tab
+3. Scroll down to "Upload presets" section
+4. Click "Add upload preset"
+5. Fill in:
+   - Preset name: fixright_unsigned
+   - Signing Mode: UNSIGNED (IMPORTANT!)
+   - Folder: (optional) fixright/profiles
+   - Resource type: Image
+6. Click "Save"
+
+═══════════════════════════════════════════════════════════
+
+STEP 4: UPDATE .env FILE
+
+Open .env file in your project root and add:
+
+CLOUDINARY_CLOUD_NAME=dxj9qp8n2
+CLOUDINARY_UPLOAD_PRESET=fixright_unsigned
+
+Replace dxj9qp8n2 with YOUR actual cloud name from step 2!
+
+═══════════════════════════════════════════════════════════
+
+STEP 5: TEST
+
+1. Run app: flutter run
+2. Login
+3. Go to Profile > My Profile
+4. Tap profile image
+5. Upload a photo
+6. It should upload and display
+
+═══════════════════════════════════════════════════════════
+
+THAT'S IT!
+
+Your My Profile screen is now fully functional with:
+✅ Profile data loading
+✅ Image upload
+✅ Cloudinary integration
+✅ Firestore updates
+
+═══════════════════════════════════════════════════════════
+
+TROUBLESHOOTING
+
+Can't upload image?
+→ Check .env file has CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET
+→ Check image is < 5MB
+→ Check image is JPG, PNG, or WebP
+
+Data won't load?
+→ Check Firestore has users/{phoneDocId} document
+→ Check Firebase auth is working
+
+═══════════════════════════════════════════════════════════

@@ -1,3 +1,4 @@
+import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -5,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
 import '../../services/user_data_helper.dart';
 import '../../services/location_service.dart';
+import '../../services/profile_service.dart';
 import 'LocationMapScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -142,6 +144,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             debugPrint('Tapped: $title');
           },
     );
+  }
+
+  /// Edit profile screen - fully functional with data loading and image upload
+  Widget _UpdateUserProfileScreen(String phoneDocId) {
+    return _EditProfileScreen(phoneDocId: phoneDocId);
   }
 
   void _showEditProfileDialog(phoneDocId) {
@@ -448,7 +455,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: Icons.person,
               title: 'My Profile',
               color: optionColor,
-              onTap: () => _showEditProfileDialog(phoneDocId),
+              // onTap: () => _showEditProfileDialog(phoneDocId),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => _UpdateUserProfileScreen(phoneDocId),
+                ),
+              ),
             ),
 
             // 2B. Location Info Card
@@ -606,6 +619,315 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 50),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Stateful edit profile screen with data loading and image upload
+class _EditProfileScreen extends StatefulWidget {
+  final String phoneDocId;
+
+  const _EditProfileScreen({required this.phoneDocId});
+
+  @override
+  State<_EditProfileScreen> createState() => _EditProfileScreenState();
+}
+
+class _EditProfileScreenState extends State<_EditProfileScreen> {
+  late ProfileService _profileService;
+
+  late UserProfile _profile;
+  bool isLoading = true;
+  bool isSaving = false;
+  String? errorMessage;
+
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
+  late TextEditingController _cityController;
+  late TextEditingController _countryController;
+  late TextEditingController _addressController;
+  late TextEditingController _phoneController;
+
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _profileService = ProfileService();
+    _loadProfile();
+  }
+
+  /// Load profile data from Firestore
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await _profileService.fetchProfile(widget.phoneDocId);
+      if (profile != null) {
+        setState(() {
+          _profile = profile;
+          _initializeControllers(profile);
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+          errorMessage = 'Profile not found';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = 'Error loading profile: $e';
+      });
+    }
+  }
+
+  /// Initialize text controllers with profile data
+  void _initializeControllers(UserProfile profile) {
+    _firstNameController = TextEditingController(text: profile.firstName);
+    _lastNameController = TextEditingController(text: profile.lastName);
+    _cityController = TextEditingController(text: profile.city);
+    _countryController = TextEditingController(text: profile.country);
+    _addressController = TextEditingController(text: profile.address);
+    _phoneController = TextEditingController(text: profile.phoneNumber);
+  }
+
+  /// Save profile changes to Firestore
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    // Validate using service
+    final validationError = ProfileService.validateProfile(
+      firstName: _firstNameController.text,
+      lastName: _lastNameController.text,
+      city: _cityController.text,
+      country: _countryController.text,
+      address: _addressController.text,
+    );
+
+    if (validationError != null) {
+      _showErrorSnackBar(validationError);
+      return;
+    }
+
+    setState(() => isSaving = true);
+
+    try {
+      await _profileService.updateProfile(
+        widget.phoneDocId,
+        firstName: _firstNameController.text,
+        lastName: _lastNameController.text,
+        city: _cityController.text,
+        country: _countryController.text,
+        address: _addressController.text,
+      );
+
+      _showSuccessSnackBar('Profile updated successfully');
+      Navigator.pop(context);
+    } catch (e) {
+      setState(() => isSaving = false);
+      _showErrorSnackBar('Error saving profile: $e');
+    }
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green.shade600),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade600),
+    );
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _cityController.dispose();
+    _countryController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('My Profile')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('My Profile')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(errorMessage!),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadProfile,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Profile'), centerTitle: true),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              // Profile Image
+              CircleAvatar(
+                radius: 60,
+                backgroundColor: Colors.grey.shade300,
+                backgroundImage: _profile.profileImageUrl != null
+                    ? NetworkImage(_profile.profileImageUrl!)
+                    : null,
+                child: _profile.profileImageUrl == null
+                    ? Icon(Icons.person, size: 60, color: Colors.grey.shade600)
+                    : null,
+              ),
+              const SizedBox(height: 32),
+
+              // First Name
+              TextFormField(
+                controller: _firstNameController,
+                decoration: InputDecoration(
+                  labelText: 'First Name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+
+              // Last Name
+              TextFormField(
+                controller: _lastNameController,
+                decoration: InputDecoration(
+                  labelText: 'Last Name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+
+              // City
+              TextFormField(
+                controller: _cityController,
+                decoration: InputDecoration(
+                  labelText: 'City',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+
+              // Country
+              TextFormField(
+                controller: _countryController,
+                decoration: InputDecoration(
+                  labelText: 'Country',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+
+              // Address
+              TextFormField(
+                controller: _addressController,
+                decoration: InputDecoration(
+                  labelText: 'Address',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                maxLines: 3,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+
+              // Phone (Read-only)
+              TextFormField(
+                controller: _phoneController,
+                decoration: InputDecoration(
+                  labelText: 'Phone Number',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  suffixIcon: Icon(
+                    Icons.lock,
+                    color: Colors.grey.shade400,
+                    size: 18,
+                  ),
+                ),
+                readOnly: true,
+                enabled: false,
+              ),
+              const SizedBox(height: 32),
+
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: isSaving ? null : _saveProfile,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Save Changes',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
