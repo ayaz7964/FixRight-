@@ -8,7 +8,7 @@ import '../../services/user_data_helper.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_service.dart';
 import 'LocationMapScreen.dart';
-
+import  '../../services/profileImageUploader.dart';
 class ProfileScreen extends StatefulWidget {
   final bool isSellerMode;
   final ValueChanged<bool> onToggleMode;
@@ -782,6 +782,8 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
       );
     }
 
+    
+
     return Scaffold(
       appBar: AppBar(title: const Text('My Profile'), centerTitle: true),
       body: SingleChildScrollView(
@@ -791,16 +793,24 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
           child: Column(
             children: [
               // Profile Image
-              CircleAvatar(
+              // CircleAvatar(
+              //   radius: 60,
+              //   backgroundColor: Colors.grey.shade300,
+              //   backgroundImage: _profile.profileImageUrl != null
+              //       ? NetworkImage(_profile.profileImageUrl!)
+              //       : null,
+              //   child: _profile.profileImageUrl == null
+              //       ? Icon(Icons.person, size: 60, color: Colors.grey.shade600)
+              //       : null,
+              // ),
+
+              ProfileImageUploader(
+                uid: widget.phoneDocId,
+                imageUrl: _profile.profileImageUrl,
                 radius: 60,
-                backgroundColor: Colors.grey.shade300,
-                backgroundImage: _profile.profileImageUrl != null
-                    ? NetworkImage(_profile.profileImageUrl!)
-                    : null,
-                child: _profile.profileImageUrl == null
-                    ? Icon(Icons.person, size: 60, color: Colors.grey.shade600)
-                    : null,
               ),
+
+
               const SizedBox(height: 32),
 
               // First Name
