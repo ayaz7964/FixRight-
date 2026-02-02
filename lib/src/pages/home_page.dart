@@ -24,6 +24,7 @@ class HomePageState extends State<HomePage> {
   String userFirstName = '';
   String userLocationAddress = '';
   bool isLoadingLocation = true;
+  String imageUrl = '';
 
   @override
   void initState() {
@@ -45,6 +46,7 @@ class HomePageState extends State<HomePage> {
         if (userDoc != null) {
           final data = userDoc.data() as Map<String, dynamic>;
           final firstName = data['firstName'] ?? 'User';
+          imageUrl = data['profileImage'] ?? '';
 
           // Try to get location from multiple fields
           String locationAddress = '';
@@ -109,13 +111,16 @@ class HomePageState extends State<HomePage> {
           children: [
             CircleAvatar(
               radius: 25,
-              child: Text(
-                userFirstName.isNotEmpty ? userFirstName[0].toUpperCase() : 'U',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
+              child: imageUrl.isEmpty
+                ? Text(
+                    userFirstName.isNotEmpty ? userFirstName[0].toUpperCase() : 'U',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
             ),
             const SizedBox(width: 10),
             Expanded(

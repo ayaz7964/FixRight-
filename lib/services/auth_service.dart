@@ -79,6 +79,7 @@ class AuthService {
       'phoneNumber': phoneDocId,
       'firebaseUid': firebaseUser.uid,
       'firstName': '',
+      'ProfileImage': 'uploading Picture',
       'lastName': '',
       'address': '',
       'role': 'buyer', // Default role

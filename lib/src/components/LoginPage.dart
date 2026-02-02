@@ -181,7 +181,8 @@ class _LoginPageState extends State<LoginPage> {
     double latitude = 0.0;
     double longitude = 0.0;
     String city = 'Unknown City';
-    String country = 'Unknown Country';
+    String country = 'Pakistan';
+    String ProfileImage = 'uploading Picture';
 
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -215,6 +216,7 @@ class _LoginPageState extends State<LoginPage> {
         'lastName': 'Account',
         'city': city,
         'country': country,
+        'profileUrl': ProfileImage,
         'Role': 'Buyer',
         'latitude': latitude,
         'longitude': longitude,

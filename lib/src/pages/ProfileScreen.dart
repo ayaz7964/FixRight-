@@ -9,6 +9,10 @@ import '../../services/location_service.dart';
 import '../../services/profile_service.dart';
 import 'LocationMapScreen.dart';
 import  '../../services/profileImageUploader.dart';
+import '../../services/test.dart';
+
+
+
 class ProfileScreen extends StatefulWidget {
   final bool isSellerMode;
   final ValueChanged<bool> onToggleMode;
@@ -40,12 +44,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String lastName = '';
   String address = '';
   String phoneNumber = '';
-  String UserRole = 'Buyer';
+  String UserRole = '';
   double longitude = 0;
   double latitude = 0;
   String city = '';
   String country = '';
   String fullAddress = '';
+  String imageUrl = '';
 
   @override
   void initState() {
@@ -73,6 +78,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         String loadedCity = data['city'] ?? '';
         String loadedCountry = data['country'] ?? '';
         String loadedAddress = data['address'] ?? '';
+        String ProfileImage = data['profileImage'] ?? ''; 
+        imageUrl = ProfileImage;
 
         if (lat != 0 && lng != 0) {
           try {
@@ -301,15 +308,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           CircleAvatar(
                             radius: 35,
                             backgroundColor: Colors.white,
-                            child: Text(
-                              firstName.isNotEmpty
-                                  ? firstName[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            backgroundImage: imageUrl.isNotEmpty 
+                              ? NetworkImage(imageUrl)
+                              : null,
+                            child: imageUrl.isEmpty
+                              ? Text(
+                                  firstName.isNotEmpty
+                                      ? firstName[0].toUpperCase()
+                                      : 'U',
+                                  style: const TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : null,
                           ),
                           // Online Status Dot
                           Positioned(
@@ -691,6 +703,7 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
     _countryController = TextEditingController(text: profile.country);
     _addressController = TextEditingController(text: profile.address);
     _phoneController = TextEditingController(text: profile.phoneNumber);
+    
   }
 
   /// Save profile changes to Firestore
@@ -810,8 +823,11 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
                 radius: 60,
               ),
 
+              const SizedBox(height: 16),
+              
+              // ImageUploadScreen(),
 
-              const SizedBox(height: 32),
+              SizedBox(height: 24),
 
               // First Name
               TextFormField(
