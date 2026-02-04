@@ -10,6 +10,7 @@ import '../../services/profile_service.dart';
 import 'LocationMapScreen.dart';
 import  '../../services/profileImageUploader.dart';
 import '../../services/test.dart';
+import '../pages/sellerForm.dart';
 
 
 
@@ -36,6 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isLoading = true;
   final mobile = UserSession().phoneUID;
   final UserDataHelper _userDataHelper = UserDataHelper();
+  Object userData ={} ; 
 
   UserDataHelper userDataHelper = UserDataHelper();
 
@@ -71,6 +73,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (userDoc != null) {
         final data = userDoc.data() as Map<String, dynamic>;
 
+        userData = data ; 
+        
         final lat = (data['latitude'] ?? 0).toDouble();
         final lng = (data['longitude'] ?? 0).toDouble();
 
@@ -371,26 +375,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   UserRole == 'Buyer'
                       ? Padding(
                           padding: const EdgeInsets.all(12.0),
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              if (latitude != 0 && longitude != 0) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'City: $city, Country: $country\n'
-                                      'Coordinates: $latitude, $longitude',
-                                    ),
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Location not available'),
-                                  ),
-                                );
-                              }
-                            },
+                          child: ElevatedButton (
+                            onPressed : () => Navigator.push(context,MaterialPageRoute(builder: (context) =>  Sellerform ( uid : widget.phoneUID, userData: userData, )))
+              //               ProfileImageUploader(
+              //   uid: widget.phoneDocId,
+              //   imageUrl: _profile.profileImageUrl,
+              //   radius: 60,
+              // )
+                                  
+                            // onPressed: () async {
+                            //   if (latitude != 0 && longitude != 0) {
+                            //     ScaffoldMessenger.of(context).showSnackBar(
+                            //       SnackBar(
+                            //         content: Text(
+                            //           'City: $city, Country: $country\n'
+                            //           'Coordinates: $latitude, $longitude',
+                            //         ),
+                            //         duration: const Duration(seconds: 3),
+                            //       ),
+                            //     );
+                            //   } else {
+                            //     ScaffoldMessenger.of(context).showSnackBar(
+                            //       const SnackBar(
+                            //         content: Text('Location not available'),
+                            //       ),
+                            //     );
+                            //   }
+                            // },
+                            ,
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size(double.infinity, 50),
                               backgroundColor: Colors.white,
