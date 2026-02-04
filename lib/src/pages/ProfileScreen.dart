@@ -8,11 +8,9 @@ import '../../services/user_data_helper.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_service.dart';
 import 'LocationMapScreen.dart';
-import  '../../services/profileImageUploader.dart';
+import '../../services/profileImageUploader.dart';
 import '../../services/test.dart';
 import '../pages/sellerForm.dart';
-
-
 
 class ProfileScreen extends StatefulWidget {
   final bool isSellerMode;
@@ -37,7 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isLoading = true;
   final mobile = UserSession().phoneUID;
   final UserDataHelper _userDataHelper = UserDataHelper();
-  Object userData ={} ; 
+  Object userData = {};
 
   UserDataHelper userDataHelper = UserDataHelper();
 
@@ -53,6 +51,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String country = '';
   String fullAddress = '';
   String imageUrl = '';
+  String sellerStatus = ''; // 'none', 'submitted', 'approved'
+  String adminComments = ''; // Track admin comments
 
   @override
   void initState() {
@@ -66,6 +66,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserProfile();
   }
 
+  /// Get seller status from Firestore sellers collection and sync with user Role
+  Future<String> _getSellerStatus() async {
+    try {
+      final sellerDoc = await _firestore
+          .collection('sellers')
+          .doc(phoneDocId)
+          .get();
+      if (sellerDoc.exists) {
+        final status = sellerDoc.data()?['status'] ?? 'none';
+        final comments = sellerDoc.data()?['comments'] ?? '';
+
+        // Store admin comments
+        setState(() {
+          adminComments = comments;
+        });
+
+        // Auto-sync: If seller is approved, update user Role to 'seller'
+        if (status == 'approved' && UserRole != 'seller') {
+          try {
+            await _firestore.collection('users').doc(phoneDocId).update({
+              'Role': 'seller',
+            });
+            print('User role automatically updated to seller');
+          } catch (e) {
+            print('Error auto-updating user role: $e');
+          }
+        }
+
+        return status;
+      }
+      return 'none';
+    } catch (e) {
+      print('Error getting seller status: $e');
+      return 'none';
+    }
+  }
+
+  /// Get seller status label for UI display
+  String _getSellerLabel() {
+    if (UserRole == 'seller') {
+      return 'Seller';
+    } else if (sellerStatus == 'submitted') {
+      return adminComments.isNotEmpty
+          ? 'Address Feedback'
+          : 'Submitted (Under Review)';
+    } else {
+      return 'Became Seller';
+    }
+  }
+
+  Future<void> updateRole() async {
+    await _firestore.collection('users').doc(phoneDocId).update({
+      'Role': 'seller', // ← Automatic update from "buyer" to "seller"
+    });
+    print('User role automatically updated to seller');
+  }
+
   Future<void> _loadUserProfile() async {
     try {
       final userDoc = await _authService.getUserProfile(phoneDocId);
@@ -73,8 +130,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (userDoc != null) {
         final data = userDoc.data() as Map<String, dynamic>;
 
-        userData = data ; 
-        
+        userData = data;
+
         final lat = (data['latitude'] ?? 0).toDouble();
         final lng = (data['longitude'] ?? 0).toDouble();
 
@@ -82,8 +139,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         String loadedCity = data['city'] ?? '';
         String loadedCountry = data['country'] ?? '';
         String loadedAddress = data['address'] ?? '';
-        String ProfileImage = data['profileImage'] ?? ''; 
+        String ProfileImage = data['profileImage'] ?? '';
         imageUrl = ProfileImage;
+
+        // Get so there is one last issue , when the seller has applied and he also sucessfull entertain the feedback and at last when the admin have approved the seller so the issue is that instead of updating the users role to seller in users document it just giving the option became seller and accourding to our login when the admin approves the seller so the users role should be converted to seller and after that the switch bar apppers automatically and seller mode on and off and switch automaticallu status
+        final status = await _getSellerStatus();
 
         if (lat != 0 && lng != 0) {
           try {
@@ -108,6 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           city = loadedCity;
           country = loadedCountry;
           fullAddress = loadedAddress;
+          sellerStatus = status;
           isLoading = false;
         });
       } else {
@@ -312,20 +373,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           CircleAvatar(
                             radius: 35,
                             backgroundColor: Colors.white,
-                            backgroundImage: imageUrl.isNotEmpty 
-                              ? NetworkImage(imageUrl)
-                              : null,
+                            backgroundImage: imageUrl.isNotEmpty
+                                ? NetworkImage(imageUrl)
+                                : null,
                             child: imageUrl.isEmpty
-                              ? Text(
-                                  firstName.isNotEmpty
-                                      ? firstName[0].toUpperCase()
-                                      : 'U',
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : null,
+                                ? Text(
+                                    firstName.isNotEmpty
+                                        ? firstName[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
                           ),
                           // Online Status Dot
                           Positioned(
@@ -372,56 +433,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const Spacer(),
-                  UserRole == 'Buyer'
-                      ? Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: ElevatedButton (
-                            onPressed : () => Navigator.push(context,MaterialPageRoute(builder: (context) =>  Sellerform ( uid : widget.phoneUID, userData: userData, )))
-              //               ProfileImageUploader(
-              //   uid: widget.phoneDocId,
-              //   imageUrl: _profile.profileImageUrl,
-              //   radius: 60,
-              // )
-                                  
-                            // onPressed: () async {
-                            //   if (latitude != 0 && longitude != 0) {
-                            //     ScaffoldMessenger.of(context).showSnackBar(
-                            //       SnackBar(
-                            //         content: Text(
-                            //           'City: $city, Country: $country\n'
-                            //           'Coordinates: $latitude, $longitude',
-                            //         ),
-                            //         duration: const Duration(seconds: 3),
-                            //       ),
-                            //     );
-                            //   } else {
-                            //     ScaffoldMessenger.of(context).showSnackBar(
-                            //       const SnackBar(
-                            //         content: Text('Location not available'),
-                            //       ),
-                            //     );
-                            //   }
-                            // },
-                            ,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 50),
-                              backgroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Text(
-                              'Became Seller',
-                              style: TextStyle(
-                                color: Color.fromARGB(255, 0, 0, 0),
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        )
-                      :
-                        // Seller Mode Switch Container
+                  UserRole == 'seller'
+                      ? // Seller Mode Switch Container
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -456,6 +469,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 },
                               ),
                             ],
+                          ),
+                        )
+                      : // Not Seller - Show Status Button
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: ElevatedButton(
+                            onPressed:
+                                (sellerStatus == 'submitted' &&
+                                    adminComments.isEmpty)
+                                ? null
+                                : () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => Sellerform(
+                                        uid: widget.phoneUID,
+                                        userData: userData,
+                                      ),
+                                    ),
+                                  ),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 50),
+                              backgroundColor: adminComments.isNotEmpty
+                                  ? Colors
+                                        .red
+                                        .shade600 // Red when feedback exists
+                                  : (sellerStatus == 'submitted'
+                                        ? Colors.orange.shade600
+                                        : Colors.white),
+                              disabledBackgroundColor: Colors.orange.shade600,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              _getSellerLabel(),
+                              style: TextStyle(
+                                color:
+                                    (sellerStatus == 'submitted' ||
+                                        adminComments.isNotEmpty)
+                                    ? Colors.white
+                                    : Colors.black,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                 ],
@@ -715,7 +773,6 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
     _countryController = TextEditingController(text: profile.country);
     _addressController = TextEditingController(text: profile.address);
     _phoneController = TextEditingController(text: profile.phoneNumber);
-    
   }
 
   /// Save profile changes to Firestore
@@ -807,8 +864,6 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
       );
     }
 
-    
-
     return Scaffold(
       appBar: AppBar(title: const Text('My Profile'), centerTitle: true),
       body: SingleChildScrollView(
@@ -828,7 +883,6 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
               //       ? Icon(Icons.person, size: 60, color: Colors.grey.shade600)
               //       : null,
               // ),
-
               ProfileImageUploader(
                 uid: widget.phoneDocId,
                 imageUrl: _profile.profileImageUrl,
@@ -836,9 +890,8 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
               ),
 
               const SizedBox(height: 16),
-              
-              // ImageUploadScreen(),
 
+              // ImageUploadScreen(),
               SizedBox(height: 24),
 
               // First Name
