@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import '../../services/auth_service.dart';
 
 class Sellerform extends StatefulWidget {
   final String? uid;
@@ -15,6 +16,7 @@ class Sellerform extends StatefulWidget {
 
 class _SellerformState extends State<Sellerform> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthService _authService = AuthService();
   final ImagePicker _imagePicker = ImagePicker();
 
   // Form fields
@@ -113,6 +115,7 @@ class _SellerformState extends State<Sellerform> {
   }
 
   /// Check if seller document already exists and load its data
+  /// If it doesn't exist, initialize it with default values
   Future<void> _checkExistingSellerDocument() async {
     try {
       final sellerDoc = await _firestore
@@ -133,6 +136,9 @@ class _SellerformState extends State<Sellerform> {
             selectedSkills = List<String>.from(skills);
           }
         });
+      } else {
+        // Initialize seller profile with default values if it doesn't exist
+        await _authService.initializeSellerProfile(widget.uid!);
       }
     } catch (e) {
       print('Error checking existing seller document: $e');
@@ -196,6 +202,17 @@ class _SellerformState extends State<Sellerform> {
         'firstName': firstName,
         'lastName': lastName,
         'mobileNumber': mobileNumber,
+
+        'Available_Balance': 0,
+        'Jobs_Completed': 0,
+        'Earning': 0,
+        'Total_Jobs': 0,
+
+        'Pending_Jobs': 0,
+        'Deposit': 0,
+        'withdrawal': 0,
+
+        'Rating': 0,
         'cnicFrontUrl':
             'https://i.dawn.com/primary/2015/12/566683b21750f.jpg', // Dummy URL
         'cnicBackUrl':

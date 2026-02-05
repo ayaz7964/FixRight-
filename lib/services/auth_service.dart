@@ -88,6 +88,31 @@ class AuthService {
     }, SetOptions(merge: true));
   }
 
+  /// Initialize seller profile with default financial and status fields
+  /// Call this when a user first becomes a seller
+  Future<void> initializeSellerProfile(String uid) async {
+    try {
+      await _firestore.collection('sellers').doc(uid).set({
+        'uid': uid,
+        'Available_Balance': 0,
+        'Jobs_Completed': 0,
+        'Earning': 0,
+        'Total_Jobs': 0,
+        'Pending_Jobs': 0,
+        'Deposit': 0,
+        'withdrawal': 0,
+        'Rating': 0,
+        'status': 'none', // 'none', 'submitted', 'approved'
+        'comments': '',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('Error initializing seller profile: $e');
+      rethrow;
+    }
+  }
+
   /// Check if user profile exists using phone number as Document ID
   Future<bool> userProfileExists(String phoneDocId) async {
     try {
