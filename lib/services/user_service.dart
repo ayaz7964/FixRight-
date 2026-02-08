@@ -3,48 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Get user profile by phone document ID
-  Future<DocumentSnapshot?> getUserProfile(String phoneDocId) async {
+  /// Get user profile by phone number
+  Future<DocumentSnapshot?> getUserProfile(String phoneNumber) async {
     try {
-      final doc = await _firestore.collection('users').doc(phoneDocId).get();
+      final doc = await _firestore.collection('users').doc(phoneNumber).get();
       return doc.exists ? doc : null;
     } catch (e) {
       print('Error fetching user profile: $e');
       return null;
-    }
-  }
-
-  /// Update user profile information
-  Future<void> updateUserProfile({
-    required String phoneDocId,
-    required String firstName,
-    required String lastName,
-    required String address,
-  }) async {
-    try {
-      await _firestore.collection('users').doc(phoneDocId).update({
-        'firstName': firstName,
-        'lastName': lastName,
-        'address': address,
-      });
-    } catch (e) {
-      print('Error updating profile: $e');
-      rethrow;
-    }
-  }
-
-  /// Update user role (buyer/seller)
-  Future<void> updateUserRole({
-    required String phoneDocId,
-    required String role,
-  }) async {
-    try {
-      await _firestore.collection('users').doc(phoneDocId).update({
-        'role': role,
-      });
-    } catch (e) {
-      print('Error updating role: $e');
-      rethrow;
     }
   }
 
@@ -56,6 +22,93 @@ class UserService {
     } catch (e) {
       print('Error fetching user: $e');
       return null;
+    }
+  }
+
+  /// Create new user profile (called after OTP verification)
+  Future<void> createUser({
+    required String phoneNumber,
+    required String uid,
+    required String firstName,
+    required String lastName,
+    required String city,
+    required String country,
+    required String address,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(phoneNumber).set({
+        'uid': uid,
+        'phone': phoneNumber,
+        'firstName': firstName,
+        'lastName': lastName,
+        'city': city,
+        'country': country,
+        'address': address,
+        'role': 'buyer',
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: false));
+
+      print('User profile created: $phoneNumber');
+    } catch (e) {
+      print('Error creating user profile: $e');
+      rethrow;
+    }
+  }
+
+  /// Update user profile information
+  Future<void> updateUserProfile({
+    required String phoneNumber,
+    required String firstName,
+    required String lastName,
+    required String address,
+    required String city,
+    required String country,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(phoneNumber).update({
+        'firstName': firstName,
+        'lastName': lastName,
+        'address': address,
+        'city': city,
+        'country': country,
+      });
+
+      print('User profile updated: $phoneNumber');
+    } catch (e) {
+      print('Error updating profile: $e');
+      rethrow;
+    }
+  }
+
+  /// Update last login timestamp
+  Future<void> updateLastLogin(String phoneNumber) async {
+    try {
+      await _firestore.collection('users').doc(phoneNumber).update({
+        'lastLogin': FieldValue.serverTimestamp(),
+      });
+
+      print('Last login updated: $phoneNumber');
+    } catch (e) {
+      print('Error updating last login: $e');
+      rethrow;
+    }
+  }
+
+  /// Update user role (buyer/seller)
+  Future<void> updateUserRole({
+    required String phoneNumber,
+    required String role,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(phoneNumber).update({
+        'role': role,
+      });
+
+      print('User role updated: $phoneNumber → $role');
+    } catch (e) {
+      print('Error updating role: $e');
+      rethrow;
     }
   }
 
@@ -94,38 +147,7 @@ class UserService {
   }
 
   /// Stream of user profile updates
-  Stream<DocumentSnapshot> getUserProfileStream(String phoneDocId) {
-    return _firestore.collection('users').doc(phoneDocId).snapshots();
-  }
-
-  /// Generate unique client ID (e.g. user_123456)
-  Future<String> generateUniqueClientId(String first, String phone) async {
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final id =
-        'user_${first.substring(0, 2)}_${timestamp.substring(timestamp.length - 4)}';
-    return id;
-  }
-
-  /// Create user profile in Firestore
-  Future<void> createUserProfile({
-    required String uid,
-    required String uniqueId,
-    required String firstName,
-    required String lastName,
-    required String phone,
-    required String city,
-    required String county,
-    String? photoUrl,
-  }) async {
-    await _firestore.collection('users').doc(uid).set({
-      'uniqueId': uniqueId,
-      'firstName': firstName,
-      'lastName': lastName,
-      'phone': phone,
-      'city': city,
-      'country': county,
-      'photoUrl': photoUrl,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+  Stream<DocumentSnapshot> getUserProfileStream(String phoneNumber) {
+    return _firestore.collection('users').doc(phoneNumber).snapshots();
   }
 }

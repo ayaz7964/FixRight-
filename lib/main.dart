@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
-import 'src/components/LoginPage.dart';
-import 'src/components/SIgnupPage.dart';
+import 'src/components/NewLoginPage.dart';
+import 'src/components/RegistrationPage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'src/pages/app_mode_switcher.dart';
 import 'services/user_session.dart';
@@ -106,8 +106,8 @@ class _FixRightAppState extends State<FixRightApp> with WidgetsBindingObserver {
       initialRoute: '/',
       routes: {
         '/': (context) => const LoginPage(),
+        '/signup': (context) => const RegistrationPage(),
         '/home': (context) => const AppModeSwitcher(),
-        '/signup': (context) => const SignupScreen(),
       },
       navigatorObservers: [_RouteObserver()],
     );

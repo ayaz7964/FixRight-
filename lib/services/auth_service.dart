@@ -17,117 +17,227 @@ class AuthService {
   String? getUserPhoneDocId() {
     final user = _auth.currentUser;
     if (user?.phoneNumber != null) {
-      return user!.phoneNumber; // Format: +923001234567
+      return user!.phoneNumber;
     }
     return null;
   }
 
-  /// Verify phone number and send OTP
-  Future<void> verifyPhone(
+  // ═══════════════════════════════════════════════════════════════
+  // REGISTRATION FLOW METHODS
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Step 1: Send OTP to phone number during registration
+  Future<void> sendOtp(
     String phone, {
     required CodeSentCallback codeSent,
     required VerificationFailedCallback verificationFailed,
   }) async {
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phone,
-      verificationCompleted: (credential) async {
-        await _auth.signInWithCredential(credential);
-      },
-      verificationFailed: (e) => verificationFailed(e),
-      codeSent: (verificationId, _) => codeSent(verificationId),
-      codeAutoRetrievalTimeout: (id) {},
-      timeout: const Duration(seconds: 60),
-    );
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phone,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (credential) async {
+          // Auto-verification happens rarely
+          await _auth.signInWithCredential(credential);
+        },
+        verificationFailed: (e) {
+          print('OTP Verification Failed: ${e.code} - ${e.message}');
+          verificationFailed(e);
+        },
+        codeSent: (verificationId, resendToken) {
+          print('OTP Sent Successfully');
+          codeSent(verificationId);
+        },
+        codeAutoRetrievalTimeout: (verificationId) {
+          print('OTP Auto-Retrieval Timeout');
+        },
+      );
+    } catch (e) {
+      print('Error sending OTP: $e');
+      rethrow;
+    }
   }
 
-  /// Sign in with OTP and create/retrieve user document using phone number as Document ID
-  Future<User?> signInWithOtp(String verificationId, String smsCode) async {
-    final credential = PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: smsCode,
-    );
-
+  /// Step 2: Verify OTP code during registration
+  Future<User?> verifyOtp(String verificationId, String smsCode) async {
     try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: verificationId,
+        smsCode: smsCode,
+      );
+
       final userCredential = await _auth.signInWithCredential(credential);
       final user = userCredential.user;
 
-      if (user != null && user.phoneNumber != null) {
-        // Use the formatted phone number as the Document ID
-        final phoneDocId = user.phoneNumber!; // e.g., "+923001234567"
-
-        // Check if user profile exists in Firestore
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(phoneDocId)
-            .get();
-
-        if (!userDoc.exists) {
-          // Create new user profile with default values
-          await _createUserProfile(phoneDocId, user);
-        }
+      if (user == null) {
+        throw Exception('Failed to authenticate user');
       }
 
       return user;
+    } on FirebaseAuthException catch (e) {
+      print('OTP Verification Error: ${e.code} - ${e.message}');
+      rethrow;
     } catch (e) {
+      print('Error verifying OTP: $e');
       rethrow;
     }
   }
 
-  /// Create a new user profile document (default role: "buyer")
-  Future<void> _createUserProfile(String phoneDocId, User firebaseUser) async {
-    await _firestore.collection('users').doc(phoneDocId).set({
-      'phoneNumber': phoneDocId,
-      'firebaseUid': firebaseUser.uid,
-      'firstName': '',
-      'ProfileImage': 'uploading Picture',
-      'lastName': '',
-      'address': '',
-      'role': 'buyer', // Default role
-      'createdAt': FieldValue.serverTimestamp(),
-      'location': null, // GeoPoint will be set later
-    }, SetOptions(merge: true));
-  }
-
-  /// Initialize seller profile with default financial and status fields
-  /// Call this when a user first becomes a seller
-  Future<void> initializeSellerProfile(String uid) async {
+  /// Step 3: Save PIN to auth collection (after OTP verification)
+  Future<void> savePin({
+    required String phoneNumber,
+    required String pin,
+    required String uid,
+  }) async {
     try {
-      await _firestore.collection('sellers').doc(uid).set({
+      // Validate PIN format
+      if (pin.length != 6 || !RegExp(r'^\d{6}$').hasMatch(pin)) {
+        throw Exception('PIN must be exactly 6 digits');
+      }
+
+      // Check if auth record already exists
+      final authDoc = await _firestore
+          .collection('auth')
+          .doc(phoneNumber)
+          .get();
+
+      if (authDoc.exists) {
+        throw Exception('User already registered. Please login instead.');
+      }
+
+      // Store PIN in auth collection
+      await _firestore.collection('auth').doc(phoneNumber).set({
+        'phone': phoneNumber,
+        'pin': pin,
         'uid': uid,
-        'Available_Balance': 0,
-        'Jobs_Completed': 0,
-        'Earning': 0,
-        'Total_Jobs': 0,
-        'Pending_Jobs': 0,
-        'Deposit': 0,
-        'withdrawal': 0,
-        'Rating': 0,
-        'status': 'none', // 'none', 'submitted', 'approved'
-        'comments': '',
+        'isVerified': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
+
+      print('PIN saved successfully for: $phoneNumber');
     } catch (e) {
-      print('Error initializing seller profile: $e');
+      print('Error saving PIN: $e');
       rethrow;
     }
   }
 
-  /// Check if user profile exists using phone number as Document ID
-  Future<bool> userProfileExists(String phoneDocId) async {
+  /// Step 4: Create user profile after successful OTP verification
+  Future<void> createUserProfile({
+    required String phoneNumber,
+    required String uid,
+    required String firstName,
+    required String lastName,
+    required String city,
+    required String country,
+    required String address,
+  }) async {
     try {
-      final doc = await _firestore.collection('users').doc(phoneDocId).get();
+      await _firestore.collection('users').doc(phoneNumber).set({
+        'uid': uid,
+        'phone': phoneNumber,
+        'firstName': firstName,
+        'lastName': lastName,
+        'city': city,
+        'country': country,
+        'address': address,
+        'role': 'buyer', // Default role
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      print('User profile created for: $phoneNumber');
+    } catch (e) {
+      print('Error creating user profile: $e');
+      rethrow;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOGIN FLOW METHODS (PIN-BASED, NO OTP)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Validate PIN during login (NO OTP required)
+  Future<Map<String, dynamic>> validateLoginWithPin({
+    required String phoneNumber,
+    required String pin,
+  }) async {
+    try {
+      // Validate PIN format
+      if (pin.length != 6 || !RegExp(r'^\d{6}$').hasMatch(pin)) {
+        throw Exception('PIN must be exactly 6 digits');
+      }
+
+      // Fetch auth credentials from Firestore
+      final authDoc = await _firestore
+          .collection('auth')
+          .doc(phoneNumber)
+          .get();
+
+      if (!authDoc.exists) {
+        throw Exception('User not found. Please register first.');
+      }
+
+      final authData = authDoc.data() as Map<String, dynamic>;
+
+      // Verify PIN
+      if (authData['pin'] != pin) {
+        throw Exception('Invalid PIN. Please try again.');
+      }
+
+      if (authData['isVerified'] != true) {
+        throw Exception('User account is not verified.');
+      }
+
+      final uid = authData['uid'] as String;
+
+      // Fetch user profile
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(phoneNumber)
+          .get();
+
+      if (!userDoc.exists) {
+        throw Exception('User profile not found.');
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+
+      // Update last login
+      await _firestore.collection('users').doc(phoneNumber).update({
+        'lastLogin': FieldValue.serverTimestamp(),
+      });
+
+      return {
+        'success': true,
+        'uid': uid,
+        'phone': phoneNumber,
+        'userData': userData,
+      };
+    } on FirebaseException catch (e) {
+      print('Firebase Error during login: ${e.code} - ${e.message}');
+      throw Exception('Database error. Please try again.');
+    } catch (e) {
+      print('Error validating PIN: $e');
+      rethrow;
+    }
+  }
+
+  /// Check if user already exists (to prevent duplicate registration)
+  Future<bool> userExists(String phoneNumber) async {
+    try {
+      final doc = await _firestore.collection('auth').doc(phoneNumber).get();
       return doc.exists;
     } catch (e) {
-      print('Error checking user profile: $e');
+      print('Error checking user existence: $e');
       return false;
     }
   }
 
-  /// Get user profile by phone number (Document ID)
-  Future<DocumentSnapshot?> getUserProfile(String phoneDocId) async {
+  /// Get user profile by phone number
+  Future<DocumentSnapshot?> getUserProfile(String phoneNumber) async {
     try {
-      final doc = await _firestore.collection('users').doc(phoneDocId).get();
+      final doc = await _firestore.collection('users').doc(phoneNumber).get();
       return doc.exists ? doc : null;
     } catch (e) {
       print('Error fetching user profile: $e');
@@ -135,114 +245,72 @@ class AuthService {
     }
   }
 
-  /// Request location permission with dialog
-  Future<LocationPermission> requestLocationPermission({
-    required Function() onDenied,
-  }) async {
-    final permission = await Geolocator.checkPermission();
+  // ═══════════════════════════════════════════════════════════════
+  // UTILITY METHODS
+  // ═══════════════════════════════════════════════════════════════
 
-    if (permission == LocationPermission.denied) {
-      final result = await Geolocator.requestPermission();
-      return result;
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      onDenied();
-    }
-
-    return permission;
-  }
-
-  /// Update user location with GeoPoint and human-readable address
-  Future<void> updateUserLocation(String phoneDocId) async {
+  /// Initialize seller profile with default financial fields
+  Future<void> initializeSellerProfile(String phoneNumber) async {
     try {
-      final permission = await Geolocator.checkPermission();
+      await _firestore.collection('sellers').doc(phoneNumber).set({
+        'phone': phoneNumber,
+        'availableBalance': 0.0,
+        'jobsCompleted': 0,
+        'earning': 0.0,
+        'totalJobs': 0,
+        'pendingJobs': 0,
+        'deposit': 0.0,
+        'withdrawal': 0.0,
+        'rating': 0.0,
+        'status': 'none', // 'none' | 'submitted' | 'approved'
+        'comments': '',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permissions are permanently denied');
-      }
-
-      if (permission == LocationPermission.denied) {
-        final result = await Geolocator.requestPermission();
-        if (result == LocationPermission.denied ||
-            result == LocationPermission.deniedForever) {
-          throw Exception('Location permission denied');
-        }
-      }
-
-      // Get current position
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      // Convert coordinates to human-readable address
-      String addressString = '';
-      try {
-        final placemarks = await placemarkFromCoordinates(
-          position.latitude,
-          position.longitude,
-        );
-
-        if (placemarks.isNotEmpty) {
-          final place = placemarks.first;
-          // Format: "City, Country"
-          final city = place.locality ?? '';
-          final country = place.country ?? '';
-          addressString = [city, country].where((s) => s.isNotEmpty).join(', ');
-        }
-      } catch (e) {
-        print('Error getting address: $e');
-        addressString =
-            '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
-      }
-
-      // Update Firestore with location data
-      await _firestore.collection('users').doc(phoneDocId).update({
-        'location': GeoPoint(position.latitude, position.longitude),
-        'address': addressString,
-        'lastLocationUpdate': FieldValue.serverTimestamp(),
-      });
+      print('Seller profile initialized for: $phoneNumber');
     } catch (e) {
-      print('Error updating location: $e');
+      print('Error initializing seller profile: $e');
       rethrow;
     }
   }
 
-  /// Get human-readable address from GeoPoint
-  Future<String> getAddressFromGeoPoint(GeoPoint geoPoint) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(
-        geoPoint.latitude,
-        geoPoint.longitude,
-      );
-
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        final city = place.locality ?? '';
-        final country = place.country ?? '';
-        return [city, country].where((s) => s.isNotEmpty).join(', ');
-      }
-
-      return '${geoPoint.latitude.toStringAsFixed(4)}, ${geoPoint.longitude.toStringAsFixed(4)}';
-    } catch (e) {
-      print('Error getting address: $e');
-      return '${geoPoint.latitude.toStringAsFixed(4)}, ${geoPoint.longitude.toStringAsFixed(4)}';
-    }
-  }
-
   /// Sign out the user
-  /// First marks user as offline, then signs out from Firebase
   Future<void> signOut() async {
     try {
-      // Mark user as offline before signing out
       final presenceService = UserPresenceService();
       await presenceService.setOfflineBeforeLogout();
     } catch (e) {
       print('Error updating presence on logout: $e');
-      // Continue with logout even if presence update fails
     }
 
-    // Sign out from Firebase Auth
-    await _auth.signOut();
+    try {
+      await _auth.signOut();
+      print('User signed out successfully');
+    } catch (e) {
+      print('Error during sign out: $e');
+      rethrow;
+    }
+  }
+
+  /// Request location permission
+  Future<LocationPermission> requestLocationPermission() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        final result = await Geolocator.requestPermission();
+        return result;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        await Geolocator.openLocationSettings();
+      }
+
+      return permission;
+    } catch (e) {
+      print('Error requesting location permission: $e');
+      rethrow;
+    }
   }
 }
