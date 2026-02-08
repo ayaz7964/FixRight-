@@ -92,10 +92,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         throw Exception('Failed to authenticate user');
       }
 
-      // Step 2: Create user profile in Firestore
+      // Step 2: Create user profile in Firestore (uid will be set to phone number)
       await _authService.createUserProfile(
         phoneNumber: widget.phoneNumber,
-        uid: user.uid,
         firstName: widget.firstName,
         lastName: widget.lastName,
         city: widget.city,
@@ -103,18 +102,17 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         address: widget.address,
       );
 
-      // Step 3: Save PIN to auth collection
+      // Step 3: Save PIN to auth collection (uid will be set to phone number)
       await _authService.savePin(
         phoneNumber: widget.phoneNumber,
         pin: widget.pin,
-        uid: user.uid,
       );
 
       if (!mounted) return;
 
       // Step 4: Set user session
       final UserModel userData = UserModel(
-        uid: user.uid,
+        uid: widget.phoneNumber,
         phone: widget.phoneNumber,
         firstName: widget.firstName,
         lastName: widget.lastName,
@@ -128,7 +126,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
       UserSession().setUserSession(
         phone: widget.phoneNumber,
-        uid: user.uid,
+        uid: widget.phoneNumber,
         userData: userData,
       );
 

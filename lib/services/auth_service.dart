@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'user_presence_service.dart';
 
 typedef CodeSentCallback = void Function(String verificationId);
@@ -87,7 +86,6 @@ class AuthService {
   Future<void> savePin({
     required String phoneNumber,
     required String pin,
-    required String uid,
   }) async {
     try {
       // Validate PIN format
@@ -105,11 +103,11 @@ class AuthService {
         throw Exception('User already registered. Please login instead.');
       }
 
-      // Store PIN in auth collection
+      // Store PIN in auth collection. Use phone number as uid.
       await _firestore.collection('auth').doc(phoneNumber).set({
         'phone': phoneNumber,
         'pin': pin,
-        'uid': uid,
+        'uid': phoneNumber, // uid intentionally set to phone
         'isVerified': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -125,7 +123,6 @@ class AuthService {
   /// Step 4: Create user profile after successful OTP verification
   Future<void> createUserProfile({
     required String phoneNumber,
-    required String uid,
     required String firstName,
     required String lastName,
     required String city,
@@ -134,8 +131,9 @@ class AuthService {
   }) async {
     try {
       await _firestore.collection('users').doc(phoneNumber).set({
-        'uid': uid,
+        'uid': phoneNumber, // store phone as uid
         'phone': phoneNumber,
+        'mobile': phoneNumber,
         'firstName': firstName,
         'lastName': lastName,
         'city': city,
@@ -189,7 +187,8 @@ class AuthService {
         throw Exception('User account is not verified.');
       }
 
-      final uid = authData['uid'] as String;
+      // Use phoneNumber as uid (ensure consistency)
+      final uid = phoneNumber;
 
       // Fetch user profile
       final userDoc = await _firestore
