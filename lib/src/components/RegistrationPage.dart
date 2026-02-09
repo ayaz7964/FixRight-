@@ -17,7 +17,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
   final _phoneController = TextEditingController();
   final _cityController = TextEditingController();
   final _addressController = TextEditingController();
-  final _pinController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool isLoading = false;
   String? selectedCountryCode;
@@ -46,13 +47,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
     _phoneController.dispose();
     _cityController.dispose();
     _addressController.dispose();
-    _pinController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  /// Validate PIN format (6 digits only)
-  bool _validatePin(String pin) {
-    return RegExp(r'^\d{6}$').hasMatch(pin);
+  /// Validate password (minimum 6 characters)
+  bool _validatePassword(String password) {
+    return password.length >= 6;
   }
 
   /// Send OTP to phone number
@@ -61,9 +63,16 @@ class _RegistrationPageState extends State<RegistrationPage> {
       return;
     }
 
-    // Validate PIN
-    if (!_validatePin(_pinController.text.trim())) {
-      _showError('PIN must be exactly 6 digits');
+    // Validate password
+    if (!_validatePassword(_passwordController.text.trim())) {
+      _showError('Password must be at least 6 characters');
+      return;
+    }
+
+    // Validate passwords match
+    if (_passwordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
+      _showError('Passwords do not match');
       return;
     }
 
@@ -97,7 +106,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   city: _cityController.text.trim(),
                   country: selectedCountry.name,
                   address: _addressController.text.trim(),
-                  pin: _pinController.text.trim(),
+                  password: _passwordController.text.trim(),
                 ),
               ),
             );
@@ -315,27 +324,47 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // PIN Code
+                // Password Field
                 TextFormField(
-                  controller: _pinController,
-                  keyboardType: TextInputType.number,
+                  controller: _passwordController,
                   obscureText: true,
-                  maxLength: 6,
                   decoration: InputDecoration(
-                    labelText: '6-Digit PIN',
+                    labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: const Icon(Icons.info_outline),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    helperText: 'This PIN will be used for login',
+                    helperText: 'Minimum 6 characters',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter a 6-digit PIN';
+                      return 'Please enter a password';
                     }
-                    if (!_validatePin(value)) {
-                      return 'PIN must be exactly 6 digits';
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Confirm Password Field
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
                     }
                     return null;
                   },

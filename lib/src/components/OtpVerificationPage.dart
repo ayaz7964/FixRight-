@@ -13,7 +13,7 @@ class OtpVerificationPage extends StatefulWidget {
   final String city;
   final String country;
   final String address;
-  final String pin;
+  final String password;
 
   const OtpVerificationPage({
     super.key,
@@ -24,7 +24,7 @@ class OtpVerificationPage extends StatefulWidget {
     required this.city,
     required this.country,
     required this.address,
-    required this.pin,
+    required this.password,
   });
 
   @override
@@ -102,10 +102,10 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         address: widget.address,
       );
 
-      // Step 3: Save PIN to auth collection (uid will be set to phone number)
-      await _authService.savePin(
+      // Step 3: Save Password to auth collection (uid will be set to phone number)
+      await _authService.savePassword(
         phoneNumber: widget.phoneNumber,
-        pin: widget.pin,
+        password: widget.password,
       );
 
       if (!mounted) return;

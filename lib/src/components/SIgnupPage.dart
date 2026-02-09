@@ -210,14 +210,14 @@ class _OtpScreenState extends State<OtpScreen> {
       address: '',
     );
 
-    // Step 4: Save PIN (if provided)
-    final pin = data['pin'] as String?;
-    if (pin != null && pin.trim().isNotEmpty) {
+    // Step 4: Save Password (if provided)
+    final password = data['password'] as String?;
+    if (password != null && password.trim().isNotEmpty) {
       try {
-        await authService.savePin(phoneNumber: phone, pin: pin);
+        await authService.savePassword(phoneNumber: phone, password: password);
       } catch (e) {
-        // If saving pin fails, log but continue
-        print('Warning: savePin failed: $e');
+        // If saving password fails, log but continue
+        print('Warning: savePassword failed: $e');
       }
     }
 
@@ -347,7 +347,11 @@ class _SignupScreenState extends State<SignupScreen> {
   String? city;
   String? country;
   File? _image;
-  final TextEditingController _pinController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
 
   bool _saving = false;
   bool _fetchingLocation = true;
@@ -364,7 +368,8 @@ class _SignupScreenState extends State<SignupScreen> {
   void dispose() {
     _first.dispose();
     _last.dispose();
-    _pinController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -542,7 +547,7 @@ class _SignupScreenState extends State<SignupScreen> {
             'city': city,
             'country': country,
             'imageFile': _image,
-            'pin': _pinController.text.trim(),
+            'password': _passwordController.text.trim(),
           };
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -764,25 +769,55 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: 18),
 
-                      // PIN Input (choose a 6-digit PIN for login)
+                      // Password Field
                       TextFormField(
-                        controller: _pinController,
-                        keyboardType: TextInputType.number,
-                        obscureText: true,
-                        maxLength: 6,
-                        decoration: InputDecoration(
-                          labelText: 'Choose a 6-digit PIN',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        controller: _passwordController,
+                        obscureText: !_showPassword,
+                        decoration: _buildInputDecoration(
+                          labelText: 'Create Password',
+                          icon: Icons.lock,
+                        ).copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _showPassword ? Icons.visibility : Icons.visibility_off,
+                            ),
+                            onPressed: () => setState(() => _showPassword = !_showPassword),
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.trim().length != 6) {
-                            return 'Enter a 6-digit PIN';
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Password is required';
                           }
-                          if (!RegExp(r'^\d{6}\$').hasMatch(v.trim())) {
-                            return 'PIN must be numeric';
+                          if (v.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Confirm Password Field
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: !_showConfirmPassword,
+                        decoration: _buildInputDecoration(
+                          labelText: 'Confirm Password',
+                          icon: Icons.lock_outline,
+                        ).copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _showConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                            ),
+                            onPressed: () => setState(() => _showConfirmPassword = !_showConfirmPassword),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Please confirm your password';
+                          }
+                          if (v != _passwordController.text) {
+                            return 'Passwords do not match';
                           }
                           return null;
                         },

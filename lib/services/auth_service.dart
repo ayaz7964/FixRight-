@@ -82,15 +82,15 @@ class AuthService {
     }
   }
 
-  /// Step 3: Save PIN to auth collection (after OTP verification)
-  Future<void> savePin({
+  /// Step 3: Save password to auth collection (after OTP verification)
+  Future<void> savePassword({
     required String phoneNumber,
-    required String pin,
+    required String password,
   }) async {
     try {
-      // Validate PIN format
-      if (pin.length != 6 || !RegExp(r'^\d{6}$').hasMatch(pin)) {
-        throw Exception('PIN must be exactly 6 digits');
+      // Validate password (minimum 6 characters)
+      if (password.isEmpty || password.length < 6) {
+        throw Exception('Password must be at least 6 characters');
       }
 
       // Check if auth record already exists
@@ -103,19 +103,19 @@ class AuthService {
         throw Exception('User already registered. Please login instead.');
       }
 
-      // Store PIN in auth collection. Use phone number as uid.
+      // Store password in auth collection. Use phone number as uid.
       await _firestore.collection('auth').doc(phoneNumber).set({
         'phone': phoneNumber,
-        'pin': pin,
+        'password': password,
         'uid': phoneNumber, // uid intentionally set to phone
         'isVerified': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      print('PIN saved successfully for: $phoneNumber');
+      print('Password saved successfully for: $phoneNumber');
     } catch (e) {
-      print('Error saving PIN: $e');
+      print('Error saving password: $e');
       rethrow;
     }
   }
@@ -128,10 +128,18 @@ class AuthService {
     required String city,
     required String country,
     required String address,
+    String role = 'buyer',
+    double? latitude,
+    double? longitude,
+    Map<String, dynamic>? liveLocation,
+    String? profileImage,
+    String? profileUrl,
+    Timestamp? updatedAt,
   }) async {
     try {
-      await _firestore.collection('users').doc(phoneNumber).set({
-        'uid': phoneNumber, // store phone as uid
+      // Build base payload
+      final Map<String, dynamic> payload = {
+        'uid': phoneNumber,
         'phone': phoneNumber,
         'mobile': phoneNumber,
         'firstName': firstName,
@@ -139,12 +147,29 @@ class AuthService {
         'city': city,
         'country': country,
         'address': address,
-        'role': 'buyer', // Default role
+        'role': role,
         'createdAt': FieldValue.serverTimestamp(),
         'lastLogin': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
 
-      print('User profile created for: $phoneNumber');
+      // Optional fields - only set when provided (preserve existing data on merge)
+      if (latitude != null) payload['latitude'] = latitude;
+      if (longitude != null) payload['longitude'] = longitude;
+      if (liveLocation != null) payload['liveLocation'] = liveLocation;
+      if (profileImage != null) payload['profileImage'] = profileImage;
+      if (profileUrl != null) payload['profileUrl'] = profileUrl;
+      if (updatedAt != null) payload['updatedAt'] = updatedAt;
+
+      // Also add placeholders so other code that expects the keys won't break
+      payload.putIfAbsent('latitude', () => latitude);
+      payload.putIfAbsent('longitude', () => longitude);
+      payload.putIfAbsent('liveLocation', () => liveLocation ?? {});
+      payload.putIfAbsent('profileImage', () => profileImage ?? '');
+      payload.putIfAbsent('profileUrl', () => profileUrl ?? '');
+
+      await _firestore.collection('users').doc(phoneNumber).set(payload, SetOptions(merge: true));
+
+      print('User profile created/updated for: $phoneNumber');
     } catch (e) {
       print('Error creating user profile: $e');
       rethrow;
@@ -152,18 +177,18 @@ class AuthService {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // LOGIN FLOW METHODS (PIN-BASED, NO OTP)
+  // LOGIN FLOW METHODS (PASSWORD-BASED, NO OTP)
   // ═══════════════════════════════════════════════════════════════
 
-  /// Validate PIN during login (NO OTP required)
-  Future<Map<String, dynamic>> validateLoginWithPin({
+  /// Validate password during login (NO OTP required)
+  Future<Map<String, dynamic>> validateLoginWithPassword({
     required String phoneNumber,
-    required String pin,
+    required String password,
   }) async {
     try {
-      // Validate PIN format
-      if (pin.length != 6 || !RegExp(r'^\d{6}$').hasMatch(pin)) {
-        throw Exception('PIN must be exactly 6 digits');
+      // Validate password
+      if (password.isEmpty || password.length < 6) {
+        throw Exception('Invalid password format');
       }
 
       // Fetch auth credentials from Firestore
@@ -178,9 +203,9 @@ class AuthService {
 
       final authData = authDoc.data() as Map<String, dynamic>;
 
-      // Verify PIN
-      if (authData['pin'] != pin) {
-        throw Exception('Invalid PIN. Please try again.');
+      // Verify password
+      if (authData['password'] != password) {
+        throw Exception('Invalid password. Please try again.');
       }
 
       if (authData['isVerified'] != true) {
@@ -241,6 +266,44 @@ class AuthService {
     } catch (e) {
       print('Error fetching user profile: $e');
       return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // FORGOT PASSWORD FLOW
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Reset password after OTP verification
+  Future<void> resetPassword({
+    required String phoneNumber,
+    required String newPassword,
+  }) async {
+    try {
+      // Validate password
+      if (newPassword.isEmpty || newPassword.length < 6) {
+        throw Exception('Password must be at least 6 characters');
+      }
+
+      // Check if user exists
+      final authDoc = await _firestore
+          .collection('auth')
+          .doc(phoneNumber)
+          .get();
+
+      if (!authDoc.exists) {
+        throw Exception('User not found.');
+      }
+
+      // Update password in auth collection
+      await _firestore.collection('auth').doc(phoneNumber).update({
+        'password': newPassword,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('Password reset successfully for: $phoneNumber');
+    } catch (e) {
+      print('Error resetting password: $e');
+      rethrow;
     }
   }
 

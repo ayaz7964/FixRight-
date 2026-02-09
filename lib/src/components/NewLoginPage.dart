@@ -55,15 +55,15 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => isLoading = true);
 
     try {
-      // Validate PIN format
-      if (_pinController.text.length != 6) {
-        throw Exception('PIN must be exactly 6 digits');
+      // Validate password
+      if (_pinController.text.isEmpty || _pinController.text.length < 6) {
+        throw Exception('Password must be at least 6 characters');
       }
 
-      // Fetch user credentials and validate PIN (NO OTP)
-      final result = await _authService.validateLoginWithPin(
+      // Fetch user credentials and validate password (NO OTP)
+      final result = await _authService.validateLoginWithPassword(
         phoneNumber: phoneNumber,
-        pin: _pinController.text.trim(),
+        password: _pinController.text.trim(),
       );
 
       if (!result['success']) {
@@ -241,11 +241,11 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 20),
 
-                        // PIN Label
+                        // Password Label
                         const Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'Enter Your PIN (6 digits)',
+                            'Enter Your Password',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
@@ -255,52 +255,33 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 12),
 
-                        // PIN Input (Pinput)
-                        Pinput(
-                          length: 6,
+                        // Password Input Field
+                        TextField(
                           controller: _pinController,
-                          keyboardType: TextInputType.number,
                           obscureText: true,
-                          defaultPinTheme: PinTheme(
-                            width: 50,
-                            height: 50,
-                            textStyle: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            decoration: BoxDecoration(
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            hintText: 'Enter your password',
+                            prefixIcon: const Icon(Icons.lock),
+                            border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                              color: Colors.white,
                             ),
-                          ),
-                          focusedPinTheme: PinTheme(
-                            width: 50,
-                            height: 50,
-                            textStyle: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.blue,
-                            ),
-                            decoration: BoxDecoration(
+                            enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.blue, width: 2),
-                              color: Colors.white,
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                                width: 1.5,
+                              ),
                             ),
-                          ),
-                          submittedPinTheme: PinTheme(
-                            width: 50,
-                            height: 50,
-                            textStyle: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.green,
-                            ),
-                            decoration: BoxDecoration(
+                            focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green, width: 2),
-                              color: Colors.white,
+                              borderSide: const BorderSide(
+                                color: Colors.blue,
+                                width: 2,
+                              ),
                             ),
+                            filled: true,
+                            fillColor: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 24),
