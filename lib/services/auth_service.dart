@@ -167,7 +167,10 @@ class AuthService {
       payload.putIfAbsent('profileImage', () => profileImage ?? '');
       payload.putIfAbsent('profileUrl', () => profileUrl ?? '');
 
-      await _firestore.collection('users').doc(phoneNumber).set(payload, SetOptions(merge: true));
+      await _firestore
+          .collection('users')
+          .doc(phoneNumber)
+          .set(payload, SetOptions(merge: true));
 
       print('User profile created/updated for: $phoneNumber');
     } catch (e) {

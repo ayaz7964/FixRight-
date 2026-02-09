@@ -773,17 +773,22 @@ class _SignupScreenState extends State<SignupScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: !_showPassword,
-                        decoration: _buildInputDecoration(
-                          labelText: 'Create Password',
-                          icon: Icons.lock,
-                        ).copyWith(
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _showPassword ? Icons.visibility : Icons.visibility_off,
+                        decoration:
+                            _buildInputDecoration(
+                              labelText: 'Create Password',
+                              icon: Icons.lock,
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _showPassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                                onPressed: () => setState(
+                                  () => _showPassword = !_showPassword,
+                                ),
+                              ),
                             ),
-                            onPressed: () => setState(() => _showPassword = !_showPassword),
-                          ),
-                        ),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
                             return 'Password is required';
@@ -801,17 +806,23 @@ class _SignupScreenState extends State<SignupScreen> {
                       TextFormField(
                         controller: _confirmPasswordController,
                         obscureText: !_showConfirmPassword,
-                        decoration: _buildInputDecoration(
-                          labelText: 'Confirm Password',
-                          icon: Icons.lock_outline,
-                        ).copyWith(
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _showConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                        decoration:
+                            _buildInputDecoration(
+                              labelText: 'Confirm Password',
+                              icon: Icons.lock_outline,
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _showConfirmPassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                                onPressed: () => setState(
+                                  () => _showConfirmPassword =
+                                      !_showConfirmPassword,
+                                ),
+                              ),
                             ),
-                            onPressed: () => setState(() => _showConfirmPassword = !_showConfirmPassword),
-                          ),
-                        ),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
                             return 'Please confirm your password';

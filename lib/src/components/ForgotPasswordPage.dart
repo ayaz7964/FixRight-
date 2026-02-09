@@ -45,7 +45,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   Future<void> _sendOtp() async {
     final phone = _phoneController.text.trim();
-    
+
     if (phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -109,7 +109,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   Future<void> _verifyOtp() async {
     final otp = _otpController.text.trim();
-    
+
     if (otp.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -223,7 +223,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             duration: Duration(seconds: 2),
           ),
         );
-        
+
         // Return to login with success flag
         Navigator.pop(context, true);
       }
@@ -231,7 +231,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Error: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text(
+              '❌ Error: ${e.toString().replaceAll('Exception: ', '')}',
+            ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -363,8 +365,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                     ),
                                   ),
                                   const Spacer(),
-                                  const Icon(Icons.arrow_drop_down,
-                                      color: Colors.grey),
+                                  const Icon(
+                                    Icons.arrow_drop_down,
+                                    color: Colors.grey,
+                                  ),
                                 ],
                               ),
                             ),
@@ -392,8 +396,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey.shade300),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -416,8 +421,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blueAccent,
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -543,8 +549,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blueAccent,
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -581,8 +588,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                 });
                               },
                               style: OutlinedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -669,8 +677,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                   color: Colors.grey,
                                 ),
                                 onPressed: () {
-                                  setState(() =>
-                                      showNewPassword = !showNewPassword);
+                                  setState(
+                                    () => showNewPassword = !showNewPassword,
+                                  );
                                 },
                               ),
                               border: OutlineInputBorder(
@@ -678,8 +687,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey.shade300),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -719,8 +729,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                   color: Colors.grey,
                                 ),
                                 onPressed: () {
-                                  setState(() => showConfirmPassword =
-                                      !showConfirmPassword);
+                                  setState(
+                                    () => showConfirmPassword =
+                                        !showConfirmPassword,
+                                  );
                                 },
                               ),
                               border: OutlineInputBorder(
@@ -728,8 +740,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey.shade300),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -752,8 +765,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green.shade600,
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
