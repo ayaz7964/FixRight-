@@ -23,6 +23,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
   bool isLoading = false;
   String? selectedCountryCode;
   String? selectedCountryName;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
 
   // Default to Pakistan
   Country selectedCountry = Country(
@@ -327,14 +329,25 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 // Password Field
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: !_showPassword,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: 'Password ',
                     prefixIcon: const Icon(Icons.lock),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     helperText: 'Minimum 6 characters',
+                    suffixIcon: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 40),
+                      splashRadius: 20,
+                      icon: Icon(
+                        _showPassword ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () =>
+                          setState(() => _showPassword = !_showPassword),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -351,12 +364,26 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 // Confirm Password Field
                 TextFormField(
                   controller: _confirmPasswordController,
-                  obscureText: true,
+                  obscureText: !_showConfirmPassword,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
+                    ),
+                    suffixIcon: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 40),
+                      splashRadius: 20,
+                      icon: Icon(
+                        _showConfirmPassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () => setState(
+                        () => _showConfirmPassword = !_showConfirmPassword,
+                      ),
                     ),
                   ),
                   validator: (value) {
