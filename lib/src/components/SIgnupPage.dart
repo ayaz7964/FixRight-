@@ -4,8 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
-import 'package:uuid/uuid.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:uuid/uuid.dart';
+import '../../services/auth_service.dart';
 import 'package:flutter/services.dart';
 
 // -------------------------------------------------------------------
@@ -93,7 +95,10 @@ class HomeScreen extends StatelessWidget {
                   // Simulate Firebase logout
                   await FirebaseAuth.instance.signOut();
                   UserService.savedGlobalUserId = null;
-                  Navigator.of(context).pushNamedAndRemoveUntil(SignupScreen.routeName, (Route<dynamic> route) => false);
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    SignupScreen.routeName,
+                    (Route<dynamic> route) => false,
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
@@ -149,14 +154,15 @@ class _OtpScreenState extends State<OtpScreen> {
       final String smsCode = _otpController.text.trim();
 
       final credential = PhoneAuthProvider.credential(
-          verificationId: widget.verificationId, smsCode: smsCode);
+        verificationId: widget.verificationId,
+        smsCode: smsCode,
+      );
 
       // Sign in the user with the credential
       await FirebaseAuth.instance.signInWithCredential(credential);
 
       // User authenticated: Proceed to save data in services
       await _saveUserDataAndNavigate(widget.userData);
-
     } on FirebaseAuthException catch (e) {
       String message = 'Verification failed. Please check the code.';
       if (e.code == 'invalid-verification-code') {
@@ -165,10 +171,9 @@ class _OtpScreenState extends State<OtpScreen> {
         message = 'Code expired. Please go back and resend the code.';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Auth Error: $message')),
-      );
-
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('❌ Auth Error: $message')));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Registration Error: ${e.toString()}')),
@@ -190,26 +195,48 @@ class _OtpScreenState extends State<OtpScreen> {
       photoUrl = await ImageService().uploadToCloudinary(imageFile);
     }
 
-    // Step 2: Generate unique userId (UUID)
-    final String userId = const Uuid().v4();
+    // Use phone as uid/mobile to satisfy requirement
+    final String phone = data['phone'] as String;
+    final String uidFromPhone = user.phoneNumber ?? phone;
 
-    // Step 3: Store user info in Firestore (Simulated)
-    await UserService().createUserProfile(
-      uid: user.uid,
-      uniqueId: userId,
+    // Step 3: Create user profile in Firestore using AuthService
+    final authService = AuthService();
+    await authService.createUserProfile(
+      phoneNumber: phone,
       firstName: data['firstName'],
       lastName: data['lastName'],
-      phone: data['phone'],
-      // Use "N/A" if location was skipped/failed
       city: data['city'] ?? 'N/A',
-      county: data['country'] ?? 'N/A',
-      photoUrl: photoUrl,
+      country: data['country'] ?? 'N/A',
+      address: '',
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Registration Complete! Redirecting...')));
+    // Step 4: Save PIN (if provided)
+    final pin = data['pin'] as String?;
+    if (pin != null && pin.trim().isNotEmpty) {
+      try {
+        await authService.savePin(phoneNumber: phone, pin: pin);
+      } catch (e) {
+        // If saving pin fails, log but continue
+        print('Warning: savePin failed: $e');
+      }
+    }
 
-    Navigator.of(context).pushNamedAndRemoveUntil(HomeScreen.routeName, (Route<dynamic> route) => false);
+    // Step 5: Update profile image if uploaded
+    if (photoUrl != null) {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uidFromPhone)
+          .update({'profileImage': photoUrl, 'profileUrl': 'Uploaded'});
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('✅ Registration Complete! Redirecting...')),
+    );
+
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      HomeScreen.routeName,
+      (Route<dynamic> route) => false,
+    );
   }
 
   @override
@@ -239,11 +266,13 @@ class _OtpScreenState extends State<OtpScreen> {
                 TextFormField(
                   controller: _otpController,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    LengthLimitingTextInputFormatter(6),
-                  ],
+                  inputFormatters: [LengthLimitingTextInputFormatter(6)],
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 24, letterSpacing: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    letterSpacing: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                   decoration: InputDecoration(
                     hintText: '• • • • • •',
                     border: OutlineInputBorder(
@@ -252,7 +281,8 @@ class _OtpScreenState extends State<OtpScreen> {
                     filled: true,
                     fillColor: Colors.grey[50],
                   ),
-                  validator: (v) => (v == null || v.length < 6) ? 'Must be 6 digits' : null,
+                  validator: (v) =>
+                      (v == null || v.length < 6) ? 'Must be 6 digits' : null,
                 ),
                 const SizedBox(height: 40),
                 SizedBox(
@@ -279,7 +309,10 @@ class _OtpScreenState extends State<OtpScreen> {
                           )
                         : const Text(
                             'Verify & Register',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                   ),
                 ),
@@ -314,6 +347,7 @@ class _SignupScreenState extends State<SignupScreen> {
   String? city;
   String? country;
   File? _image;
+  final TextEditingController _pinController = TextEditingController();
 
   bool _saving = false;
   bool _fetchingLocation = true;
@@ -330,12 +364,52 @@ class _SignupScreenState extends State<SignupScreen> {
   void dispose() {
     _first.dispose();
     _last.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
   /// ---------------- LOCATION FIXES ----------------
   Future<void> _getUserLocation() async {
     try {
+      // Check if phone already registered
+      final authService = AuthService();
+      final exists = await authService.userExists(phone);
+      if (exists) {
+        // Ask user to choose action: use other number or login
+        if (!mounted) return;
+        final choice = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Number already registered'),
+            content: const Text(
+              'This phone number is already registered. Would you like to login with this number or use a different number?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop('other'),
+                child: const Text('Use other number'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop('login'),
+                child: const Text('Login'),
+              ),
+            ],
+          ),
+        );
+
+        if (choice == 'other') {
+          setState(() => _saving = false);
+          return;
+        }
+
+        if (choice == 'login') {
+          // navigate to login
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/');
+          }
+          return;
+        }
+      }
       setState(() => _fetchingLocation = true);
 
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -358,11 +432,15 @@ class _SignupScreenState extends State<SignupScreen> {
       // Set timeout for professional experience (prevents ANR)
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 8), // Reduced time to prevent blocking
+        timeLimit: const Duration(
+          seconds: 8,
+        ), // Reduced time to prevent blocking
       );
 
-      final placemarks =
-          await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      final placemarks = await placemarkFromCoordinates(
+        pos.latitude,
+        pos.longitude,
+      );
 
       // Safety check for empty placemarks
       if (placemarks.isNotEmpty) {
@@ -373,14 +451,16 @@ class _SignupScreenState extends State<SignupScreen> {
           country = p.country ?? 'Unknown Country';
         });
       } else {
-         throw Exception('Could not reverse geocode location.');
+        throw Exception('Could not reverse geocode location.');
       }
     } catch (e) {
       // ⚠️ IMPORTANT FIX: Log error but allow registration to continue.
       print('Location Fetch Error: ${e.toString()}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('⚠️ Location could not be detected. Registration will proceed without it.'),
+          content: Text(
+            '⚠️ Location could not be detected. Registration will proceed without it.',
+          ),
           duration: const Duration(seconds: 4),
         ),
       );
@@ -396,8 +476,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
   /// ---------------- IMAGE PICKER ----------------
   Future<void> _pickImage() async {
-    final picked =
-        await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
     if (picked != null) {
       setState(() => _image = File(picked.path));
     }
@@ -408,8 +490,9 @@ class _SignupScreenState extends State<SignupScreen> {
     // 1. Initial Validation
     if (!_formKey.currentState!.validate()) return;
     if (phone.isEmpty || phone.length < 10) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please enter a complete phone number.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a complete phone number.')),
+      );
       return;
     }
 
@@ -424,7 +507,10 @@ class _SignupScreenState extends State<SignupScreen> {
         verificationCompleted: (PhoneAuthCredential credential) async {
           await FirebaseAuth.instance.signInWithCredential(credential);
           // If auto-verified, go straight to saving data (passing current state data)
-          await _onUserAuthenticated(FirebaseAuth.instance.currentUser, isAuto: true);
+          await _onUserAuthenticated(
+            FirebaseAuth.instance.currentUser,
+            isAuto: true,
+          );
         },
 
         // 3. Error Handling for common failures
@@ -439,13 +525,13 @@ class _SignupScreenState extends State<SignupScreen> {
             message = e.message ?? 'Unknown authentication error.';
           }
 
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('❌ Auth Error: $message')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('❌ Auth Error: $message')));
         },
 
         // 4. Code Sent: Navigate to OTP Screen
         codeSent: (verificationId, resendToken) async {
-
           setState(() => _saving = false);
 
           final userData = {
@@ -456,19 +542,20 @@ class _SignupScreenState extends State<SignupScreen> {
             'city': city,
             'country': country,
             'imageFile': _image,
+            'pin': _pinController.text.trim(),
           };
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Verification code sent. Redirecting...')),
+            const SnackBar(
+              content: Text('Verification code sent. Redirecting...'),
+            ),
           );
 
           // Push to the dedicated OTP screen for verification
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (ctx) => OtpScreen(
-                verificationId: verificationId,
-                userData: userData,
-              ),
+              builder: (ctx) =>
+                  OtpScreen(verificationId: verificationId, userData: userData),
             ),
           );
         },
@@ -476,8 +563,9 @@ class _SignupScreenState extends State<SignupScreen> {
         codeAutoRetrievalTimeout: (verificationId) {},
       );
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('❌ Critical Error: ${e.toString()}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Critical Error: ${e.toString()}')),
+      );
       setState(() => _saving = false);
     }
   }
@@ -489,22 +577,23 @@ class _SignupScreenState extends State<SignupScreen> {
     final String userId = const Uuid().v4();
     String? photoUrl;
     if (_image != null) {
-        photoUrl = await ImageService().uploadToCloudinary(_image!);
+      photoUrl = await ImageService().uploadToCloudinary(_image!);
     }
 
     await UserService().createUserProfile(
-        uid: user.uid,
-        uniqueId: userId,
-        firstName: _first.text.trim(),
-        lastName: _last.text.trim(),
-        phone: phone,
-        city: city ?? 'N/A',
-        county: country ?? 'N/A',
-        photoUrl: photoUrl,
+      uid: user.uid,
+      uniqueId: userId,
+      firstName: _first.text.trim(),
+      lastName: _last.text.trim(),
+      phone: phone,
+      city: city ?? 'N/A',
+      county: country ?? 'N/A',
+      photoUrl: photoUrl,
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Auto Registration Complete!')));
+      const SnackBar(content: Text('✅ Auto Registration Complete!')),
+    );
 
     Navigator.pushReplacementNamed(context, HomeScreen.routeName);
   }
@@ -530,7 +619,10 @@ class _SignupScreenState extends State<SignupScreen> {
           Center(
             child: SingleChildScrollView(
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 30,
+                ),
                 padding: const EdgeInsets.all(26),
                 constraints: const BoxConstraints(maxWidth: 400),
                 decoration: BoxDecoration(
@@ -553,11 +645,13 @@ class _SignupScreenState extends State<SignupScreen> {
                       Row(
                         children: [
                           IconButton(
-                            onPressed:() => Navigator.pushReplacementNamed(context, '/')
+                            onPressed: () =>
+                                Navigator.pushReplacementNamed(context, '/'),
                             //  () => Navigator.of(context).pop()
-                             ,
-                            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                                color: blue),
+                            icon: Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: blue,
+                            ),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -581,22 +675,32 @@ class _SignupScreenState extends State<SignupScreen> {
                             CircleAvatar(
                               radius: 55,
                               backgroundColor: Colors.grey[200],
-                              backgroundImage:
-                                  _image != null ? FileImage(_image!) as ImageProvider : null,
+                              backgroundImage: _image != null
+                                  ? FileImage(_image!) as ImageProvider
+                                  : null,
                               child: _image == null
-                                  ? Icon(Icons.camera_alt_outlined,
-                                      color: Colors.grey[600], size: 36)
+                                  ? Icon(
+                                      Icons.camera_alt_outlined,
+                                      color: Colors.grey[600],
+                                      size: 36,
+                                    )
                                   : null,
                             ),
                             Container(
                               decoration: BoxDecoration(
                                 color: blue,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
+                                ),
                               ),
                               padding: const EdgeInsets.all(6),
-                              child: const Icon(Icons.edit,
-                                  size: 18, color: Colors.white),
+                              child: const Icon(
+                                Icons.edit,
+                                size: 18,
+                                color: Colors.white,
+                              ),
                             ),
                           ],
                         ),
@@ -617,8 +721,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                 children: [
                                   LinearProgressIndicator(color: blue),
                                   const SizedBox(height: 8),
-                                  const Text('Detecting location. Please wait...',
-                                      style: TextStyle(color: Colors.grey)),
+                                  const Text(
+                                    'Detecting location. Please wait...',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
                                 ],
                               ),
                             )
@@ -644,11 +750,42 @@ class _SignupScreenState extends State<SignupScreen> {
                       IntlPhoneField(
                         initialCountryCode: 'PK', // Default country code
                         decoration: _buildInputDecoration(
-                            labelText: 'Phone Number', icon: Icons.phone),
+                          labelText: 'Phone Number',
+                          icon: Icons.phone,
+                        ),
                         onChanged: (p) => phone = p.completeNumber,
-                        validator: (p) => (p == null || p.number.isEmpty || p.number.length < 5)
+                        validator: (p) =>
+                            (p == null ||
+                                p.number.isEmpty ||
+                                p.number.length < 5)
                             ? 'Please enter your phone number'
                             : null,
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // PIN Input (choose a 6-digit PIN for login)
+                      TextFormField(
+                        controller: _pinController,
+                        keyboardType: TextInputType.number,
+                        obscureText: true,
+                        maxLength: 6,
+                        decoration: InputDecoration(
+                          labelText: 'Choose a 6-digit PIN',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().length != 6) {
+                            return 'Enter a 6-digit PIN';
+                          }
+                          if (!RegExp(r'^\d{6}\$').hasMatch(v.trim())) {
+                            return 'PIN must be numeric';
+                          }
+                          return null;
+                        },
                       ),
 
                       const SizedBox(height: 30),
@@ -697,7 +834,10 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   // Helper for consistent Input Decoration styling
-  InputDecoration _buildInputDecoration({required String labelText, required IconData icon}) {
+  InputDecoration _buildInputDecoration({
+    required String labelText,
+    required IconData icon,
+  }) {
     return InputDecoration(
       labelText: labelText,
       prefixIcon: Icon(icon, color: blue),
@@ -720,7 +860,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
   /// ---------------- REUSABLE UI COMPONENTS ----------------
   Widget _buildTextField(
-      TextEditingController controller, String label, IconData icon) {
+    TextEditingController controller,
+    String label,
+    IconData icon,
+  ) {
     return TextFormField(
       controller: controller,
       decoration: _buildInputDecoration(labelText: label, icon: icon),
@@ -728,15 +871,18 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _buildReadOnlyField(
-      {required String label, required String value, required IconData icon}) {
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
     return TextFormField(
       readOnly: true,
       initialValue: value,
-      decoration: _buildInputDecoration(labelText: label, icon: icon).copyWith(
-        filled: true,
-        fillColor: Colors.grey[50],
-      ),
+      decoration: _buildInputDecoration(
+        labelText: label,
+        icon: icon,
+      ).copyWith(filled: true, fillColor: Colors.grey[50]),
     );
   }
 }
@@ -756,7 +902,7 @@ class _SignupScreenState extends State<SignupScreen> {
 //         ),
 //       ),
 //       body: Center(child: Column(children: [
-            
+
 //           ],
 //         )),
 //     );

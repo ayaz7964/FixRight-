@@ -9,7 +9,7 @@ class JobPostingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Post a New Job'),
+        title: const Text('Post a New Job Ayaz HUssain '),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
