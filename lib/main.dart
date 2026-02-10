@@ -16,7 +16,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await dotenv.load(fileName: ".env");
-  
+
   runApp(const FixRightApp());
 }
 
@@ -54,7 +54,7 @@ class _FixRightAppState extends State<FixRightApp> with WidgetsBindingObserver {
         final email = firebaseUser.email ?? '';
         if (email.contains(AuthSessionService.emailDomain)) {
           final phone = email.replaceAll(AuthSessionService.emailDomain, '');
-          
+
           // Fetch user profile from Firestore to restore UserSession
           final userDoc = await FirebaseFirestore.instance
               .collection('users')
@@ -96,7 +96,6 @@ class _FixRightAppState extends State<FixRightApp> with WidgetsBindingObserver {
       await _presenceService.initializePresence();
     }
   }
-
 
   @override
   void dispose() {

@@ -94,9 +94,7 @@ class _LoginPageState extends State<LoginPage> {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(phoneNumber)
-          .update({
-        'lastLogin': FieldValue.serverTimestamp(),
-      });
+          .update({'lastLogin': FieldValue.serverTimestamp()});
 
       // Step 4: Set user session
       UserSession().setUserSession(

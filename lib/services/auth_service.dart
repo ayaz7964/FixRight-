@@ -278,7 +278,8 @@ class AuthService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Reset password after OTP verification
-  /// Updates both Firestore and Firebase Auth for consistency
+  /// Only updates Firestore auth document - simple and clean
+  /// Firebase Auth will be updated automatically when user logs in
   Future<void> resetPassword({
     required String phoneNumber,
     required String newPassword,
@@ -299,25 +300,11 @@ class AuthService {
         throw Exception('User not found.');
       }
 
-      // Step 1: Update password in Firestore (existing logic)
+      // Update password in Firestore auth collection
       await _firestore.collection('auth').doc(phoneNumber).update({
         'password': newPassword,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
-      // Step 2: Update password in Firebase Auth (new session layer)
-      // This ensures consistency between Firestore and Firebase Auth
-      try {
-        final sessionService = AuthSessionService();
-        await sessionService.updatePassword(
-          phoneNumber: phoneNumber,
-          newPassword: newPassword,
-        );
-      } catch (e) {
-        print('Warning: Could not update Firebase Auth password: $e');
-        // Don't fail the operation - Firestore password is already updated
-        // Firebase Auth will catch up when user logs in
-      }
 
       print('Password reset successfully for: $phoneNumber');
     } catch (e) {
