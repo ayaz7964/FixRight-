@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
 import '../../services/user_presence_service.dart';
 import 'RegistrationPage.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -100,6 +101,8 @@ class _LoginPageState extends State<LoginPage> {
         _showError(e.toString().replaceAll('Exception: ', ''));
       }
     }
+    // await FirebaseAuth.instance.signInAnonymously();
+
   }
 
   /// Show error snackbar

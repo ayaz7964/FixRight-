@@ -5,6 +5,8 @@ import '../../services/user_session.dart';
 import '../../services/user_presence_service.dart';
 import 'ForgotPasswordPage.dart';
 
+// import 'package:firebase_auth/firebase_auth.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -73,6 +75,7 @@ class _LoginPageState extends State<LoginPage> {
 
       // Convert userData Map to UserModel
       final userModel = UserModel.fromFirestore(userData);
+      // await FirebaseAuth.instance.signInAnonymously();
 
       // Set user session with proper UserModel type
       UserSession().setUserSession(
