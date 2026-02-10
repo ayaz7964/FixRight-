@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:country_picker/country_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
+import '../../services/auth_session_service.dart';
 import '../../services/user_session.dart';
 import '../../services/user_presence_service.dart';
 import 'ForgotPasswordPage.dart';
@@ -62,35 +65,72 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final phoneNumber =
           '+${selectedCountry.phoneCode}${_phoneController.text.trim()}';
+      final password = _passwordController.text.trim();
 
-      // Validate password
-      final result = await _authService.validateLoginWithPassword(
+      // Step 1: Sign in to Firebase Auth first
+      // This establishes the authentication session needed for Firestore access
+      final sessionService = AuthSessionService();
+      await sessionService.signInWithPhonePassword(
         phoneNumber: phoneNumber,
-        password: _passwordController.text.trim(),
+        password: password,
       );
+      print('✅ Firebase Auth session established');
 
-      // Get UID and userData from result
-      final uid = result['uid'] as String;
-      final userData = result['userData'] as Map<String, dynamic>;
+      // Step 2: Fetch user profile from Firestore (now authenticated)
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(phoneNumber)
+          .get();
 
-      // Convert userData Map to UserModel
+      if (!userDoc.exists) {
+        throw Exception('User profile not found. Please contact support.');
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
       final userModel = UserModel.fromFirestore(userData);
-      // await FirebaseAuth.instance.signInAnonymously();
+      final uid = phoneNumber; // Phone is the UID
 
-      // Set user session with proper UserModel type
+      // Step 3: Update last login
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(phoneNumber)
+          .update({
+        'lastLogin': FieldValue.serverTimestamp(),
+      });
+
+      // Step 4: Set user session
       UserSession().setUserSession(
         phone: phoneNumber,
         uid: uid,
         userData: userModel,
       );
 
-      // Initialize presence
+      // Step 5: Initialize presence
       final presenceService = UserPresenceService();
       await presenceService.initializePresence();
 
-      // Navigate to home
+      // Step 6: Navigate to home
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
+        String message = 'Login failed';
+        if (e.code == 'user-not-found') {
+          message = 'User not found. Please register first.';
+        } else if (e.code == 'wrong-password') {
+          message = 'Invalid password. Please try again.';
+        } else if (e.code == 'invalid-email') {
+          message = 'Invalid phone number format.';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ $message'),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

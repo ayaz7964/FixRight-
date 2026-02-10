@@ -9,11 +9,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'src/pages/app_mode_switcher.dart';
 import 'services/user_session.dart';
 import 'services/user_presence_service.dart';
+import 'services/auth_session_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await dotenv.load(fileName: ".env");
+  
   runApp(const FixRightApp());
 }
 
@@ -33,8 +36,56 @@ class _FixRightAppState extends State<FixRightApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Initialize presence if user is already logged in
-    _initializePresenceIfNeeded();
+    // Restore user session if Firebase Auth session is active
+    _restoreSessionIfAvailable();
+  }
+
+  /// Restore user session from Firebase Auth persistent session
+  /// This handles the case where user was logged in and app was restarted
+  Future<void> _restoreSessionIfAvailable() async {
+    try {
+      // Check if Firebase Auth has a valid session
+      if (_auth.currentUser != null) {
+        final firebaseUser = _auth.currentUser!;
+        print('Firebase Auth session found: ${firebaseUser.email}');
+
+        // Extract phone number from email alias
+        // Email format: <phone>@app.fixright.com
+        final email = firebaseUser.email ?? '';
+        if (email.contains(AuthSessionService.emailDomain)) {
+          final phone = email.replaceAll(AuthSessionService.emailDomain, '');
+          
+          // Fetch user profile from Firestore to restore UserSession
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc('+$phone')
+              .get();
+
+          if (userDoc.exists) {
+            final userData = userDoc.data() as Map<String, dynamic>;
+            final userModel = UserModel.fromFirestore(userData);
+
+            // Restore UserSession singleton
+            UserSession().setUserSession(
+              phone: '+$phone',
+              uid: '+$phone',
+              userData: userModel,
+            );
+
+            print('✅ User session restored from Firebase Auth: +$phone');
+
+            // Initialize presence for restored session
+            _hasInitializedPresence = true;
+            await _presenceService.initializePresence();
+          } else {
+            print('Warning: User profile not found in Firestore');
+          }
+        }
+      }
+    } catch (e) {
+      print('Error restoring session: $e');
+      // Don't block app startup - user will need to login manually
+    }
   }
 
   /// Initialize presence for authenticated users
@@ -45,6 +96,7 @@ class _FixRightAppState extends State<FixRightApp> with WidgetsBindingObserver {
       await _presenceService.initializePresence();
     }
   }
+
 
   @override
   void dispose() {
@@ -106,13 +158,26 @@ class _FixRightAppState extends State<FixRightApp> with WidgetsBindingObserver {
       theme: theme,
       initialRoute: '/',
       routes: {
-        '/': (context) => const LoginPage(),
+        '/': (context) => _buildAuthPage(),
+        '/login': (context) => const LoginPage(),
         '/signup': (context) => const RegistrationPage(),
         '/forgot-password': (context) => const ForgotPasswordPage(),
         '/home': (context) => const AppModeSwitcher(),
       },
       navigatorObservers: [_RouteObserver()],
     );
+  }
+
+  /// Build the appropriate auth page based on session state
+  /// If user has Firebase Auth session, go to home
+  /// Otherwise, show login page
+  Widget _buildAuthPage() {
+    // If Firebase Auth session exists, user is already logged in
+    if (_auth.currentUser != null && UserSession().isAuthenticated) {
+      return const AppModeSwitcher();
+    }
+    // Otherwise, show login page
+    return const LoginPage();
   }
 }
 

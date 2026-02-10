@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pinput/pinput.dart';
 import '../../services/auth_service.dart';
+import '../../services/auth_session_service.dart';
 import '../../services/user_session.dart';
 import '../../services/user_presence_service.dart';
 
@@ -108,9 +109,23 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         password: widget.password,
       );
 
+      // Step 4: Create Firebase Auth account for session persistence (new layer)
+      // This establishes a proper session that will persist across app restarts
+      try {
+        final sessionService = AuthSessionService();
+        await sessionService.createAuthAccount(
+          phoneNumber: widget.phoneNumber,
+          password: widget.password,
+        );
+        print('✅ Firebase Auth account created for session persistence');
+      } catch (e) {
+        print('⚠️ Firebase Auth account creation failed: $e');
+        // Don't block registration - user can still log in with Firestore
+      }
+
       if (!mounted) return;
 
-      // Step 4: Set user session
+      // Step 5: Set user session
       final UserModel userData = UserModel(
         uid: widget.phoneNumber,
         phone: widget.phoneNumber,
@@ -130,7 +145,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         userData: userData,
       );
 
-      // Step 5: Initialize presence
+      // Step 6: Initialize presence
       try {
         final presenceService = UserPresenceService();
         await presenceService.initializePresence();
@@ -138,7 +153,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         print('Error initializing presence: $e');
       }
 
-      // Step 6: Navigate to home
+      // Step 7: Navigate to home
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/home');
       }

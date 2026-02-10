@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'user_presence_service.dart';
+import 'auth_session_service.dart';
 
 typedef CodeSentCallback = void Function(String verificationId);
 typedef VerificationFailedCallback = void Function(FirebaseAuthException e);
@@ -277,6 +278,7 @@ class AuthService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Reset password after OTP verification
+  /// Updates both Firestore and Firebase Auth for consistency
   Future<void> resetPassword({
     required String phoneNumber,
     required String newPassword,
@@ -297,11 +299,25 @@ class AuthService {
         throw Exception('User not found.');
       }
 
-      // Update password in auth collection
+      // Step 1: Update password in Firestore (existing logic)
       await _firestore.collection('auth').doc(phoneNumber).update({
         'password': newPassword,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Step 2: Update password in Firebase Auth (new session layer)
+      // This ensures consistency between Firestore and Firebase Auth
+      try {
+        final sessionService = AuthSessionService();
+        await sessionService.updatePassword(
+          phoneNumber: phoneNumber,
+          newPassword: newPassword,
+        );
+      } catch (e) {
+        print('Warning: Could not update Firebase Auth password: $e');
+        // Don't fail the operation - Firestore password is already updated
+        // Firebase Auth will catch up when user logs in
+      }
 
       print('Password reset successfully for: $phoneNumber');
     } catch (e) {
@@ -340,9 +356,10 @@ class AuthService {
     }
   }
 
-  /// Sign out the user
+  /// Sign out the user from both Firestore and Firebase Auth sessions
   Future<void> signOut() async {
     try {
+      // Step 1: Update user presence to offline
       final presenceService = UserPresenceService();
       await presenceService.setOfflineBeforeLogout();
     } catch (e) {
@@ -350,8 +367,13 @@ class AuthService {
     }
 
     try {
+      // Step 2: Sign out from Firebase Auth (session management)
+      final sessionService = AuthSessionService();
+      await sessionService.signOut();
+
+      // Step 3: Sign out from Firebase Auth instance
       await _auth.signOut();
-      print('User signed out successfully');
+      print('User signed out successfully from all sessions');
     } catch (e) {
       print('Error during sign out: $e');
       rethrow;
