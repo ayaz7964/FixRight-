@@ -32,7 +32,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   @override
   void initState() {
     super.initState();
-    selectedCountry = Country.parse('US');
+    selectedCountry = Country.parse('PK');
   }
 
   @override
@@ -235,7 +235,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             content: Text(
               '❌ Error: ${e.toString().replaceAll('Exception: ', '')}',
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: const Color.fromARGB(255, 237, 25, 25),
             duration: const Duration(seconds: 4),
           ),
         );

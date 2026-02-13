@@ -135,7 +135,7 @@ class _LoginPageState extends State<LoginPage> {
         setState(() => isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text('❌  error is here '), // ${e.toString().replaceAll('Exception: ', '')}
             duration: const Duration(seconds: 4),
             backgroundColor: Colors.red,
           ),
@@ -409,7 +409,7 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Don't have an account?  ",
+                      "Don't have an account?  Login Page ",
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                     TextButton(
