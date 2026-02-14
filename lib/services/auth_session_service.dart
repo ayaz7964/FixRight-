@@ -105,6 +105,7 @@ class AuthSessionService {
   /// 1. OTP verification (Firebase Auth)
   /// 2. Creating user profile in Firestore
   /// 3. Saving password in Firestore auth collection
+  //  identifing the bug of login 
   ///
   /// Now we need to create a proper Firebase Auth account for session persistence.
   Future<UserCredential> createAuthAccount({
