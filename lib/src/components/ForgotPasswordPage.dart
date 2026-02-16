@@ -212,7 +212,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
       // Call resetPassword to update in Firestore auth collection
       await _authService.resetPassword(
-        phoneNumber: phoneNumber,
+        phone: phoneNumber,
         newPassword: newPass,
       );
 
