@@ -89,30 +89,18 @@ class AuthService {
     required String password,
   }) async {
     try {
-      // Validate password (minimum 6 characters)
       if (password.isEmpty || password.length < 6) {
         throw Exception('Password must be at least 6 characters');
       }
 
-      // Check if auth record already exists
-      final authDoc = await _firestore
-          .collection('auth')
-          .doc(phoneNumber)
-          .get();
-
-      if (authDoc.exists) {
-        throw Exception('User already registered. Please login instead.');
-      }
-
-      // Store password in auth collection. Use phone number as uid.
+      // Store password in a dedicated auth collection (legacy)
+      // NOTE: storing plaintext passwords is insecure; migrate to FirebaseAuth
       await _firestore.collection('auth').doc(phoneNumber).set({
-        'phone': phoneNumber,
         'password': password,
-        'uid': phoneNumber, // uid intentionally set to phone
         'isVerified': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       print('Password saved successfully for: $phoneNumber');
     } catch (e) {
@@ -280,38 +268,168 @@ class AuthService {
   /// Reset password after OTP verification
   /// Only updates Firestore auth document - simple and clean
   /// Firebase Auth will be updated automatically when user logs in
-  Future<void> resetPassword({
-    required String phoneNumber,
-    required String newPassword,
-  }) async {
+  
+
+
+
+
+  // Future<void> resetPassword({
+  //   required String phoneNumber,
+  //   required String newPassword,
+  // }) async {
+  //   try {
+  //     // Validate password
+  //     if (newPassword.isEmpty || newPassword.length < 6) {
+  //       throw Exception('Password must be at least 6 characters');
+  //     }
+
+  //     // Check if user exists
+  //     final authDoc = await _firestore
+  //         .collection('auth')
+  //         .doc(phoneNumber)
+  //         .get();
+
+  //     if (!authDoc.exists) {
+  //       throw Exception('User not found.');
+  //     }
+
+  //     // Update password in Firestore auth collection
+  //     await _firestore.collection('auth').doc(phoneNumber).update({
+  //       'password': newPassword,
+  //       'updatedAt': FieldValue.serverTimestamp(),
+  //     });
+
+  //     print('Password reset successfully for: $phoneNumber');
+  //   } catch (e) {
+  //     print('Error resetting password: $e');
+  //     rethrow;
+  //   }
+  // }
+
+
+Future<void> resetPassword({
+  required String phoneNumber,
+  required String newPassword,
+}) async {
+  // Simpler password reset: assume OTP verification has signed the user in
+  // and simply update the FirebaseAuth user's password. Avoid linking
+  // providers or signing in/out here to prevent provider merge/link errors.
+  if (newPassword.length < 6) {
+    throw FirebaseAuthException(
+      code: 'weak-password',
+      message: 'Password must be at least 6 characters.',
+    );
+  }
+
+  final User? user = _auth.currentUser;
+  if (user == null) {
+    throw FirebaseAuthException(
+      code: 'not-authenticated',
+      message: 'User is not authenticated. Verify OTP first.',
+    );
+  }
+
+  try {
+    // Update the FirebaseAuth password for the signed-in user
+    await user.updatePassword(newPassword);
+
+    // Optionally sync legacy Firestore auth doc if you still keep it
     try {
-      // Validate password
-      if (newPassword.isEmpty || newPassword.length < 6) {
-        throw Exception('Password must be at least 6 characters');
-      }
-
-      // Check if user exists
-      final authDoc = await _firestore
-          .collection('auth')
-          .doc(phoneNumber)
-          .get();
-
-      if (!authDoc.exists) {
-        throw Exception('User not found.');
-      }
-
-      // Update password in Firestore auth collection
-      await _firestore.collection('auth').doc(phoneNumber).update({
+      await _firestore.collection('auth').doc(phoneNumber).set({
         'password': newPassword,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      print('Password reset successfully for: $phoneNumber');
-    } catch (e) {
-      print('Error resetting password: $e');
-      rethrow;
+      }, SetOptions(merge: true));
+    } catch (syncErr) {
+      // Don't fail the whole flow if Firestore write is denied; log for debug
+      print('Warning: failed to update legacy auth doc: $syncErr');
     }
+  } on FirebaseAuthException catch (e) {
+    // Re-throw so callers (UI) can display friendly messages
+    rethrow;
+  } catch (e) {
+    print('Error resetting password: $e');
+    rethrow;
   }
+}
+
+
+
+// Future<void> resetPassword({
+//   required String phoneNumber,
+//   required String newPassword,
+//   required String verificationId,
+//   required String smsCode,
+// }) async {
+//   if (newPassword.length < 6) {
+//     throw FirebaseAuthException(
+//       code: 'weak-password',
+//       message: 'Password must be at least 6 characters.',
+//     );
+//   }
+
+//   final String email = phoneToEmail(phoneNumber);
+
+//   try {
+//     // 1️⃣ Create phone credential from OTP
+//     final PhoneAuthCredential credential =
+//         PhoneAuthProvider.credential(
+//       verificationId: verificationId,
+//       smsCode: smsCode,
+//     );
+
+//     // 2️⃣ Sign in with phone credential (IMPORTANT)
+//     final UserCredential userCredential =
+//         await _auth.signInWithCredential(credential);
+
+//     final User? user = userCredential.user;
+
+//     if (user == null) {
+//       throw FirebaseAuthException(
+//         code: 'not-authenticated',
+//         message: 'OTP verification failed.',
+//       );
+//     }
+
+//     // 3️⃣ Update password in FirebaseAuth (REAL PASSWORD UPDATE)
+//     await user.updatePassword(newPassword);
+
+//     // 4️⃣ Sign out to refresh token
+//     await _auth.signOut();
+
+//     // 5️⃣ Sign in with phone->email alias and NEW password
+//     await _auth.signInWithEmailAndPassword(
+//       email: email,
+//       password: newPassword,
+//     );
+
+//   } on FirebaseAuthException catch (e) {
+//     if (e.code == 'invalid-verification-code') {
+//       throw FirebaseAuthException(
+//         code: e.code,
+//         message: 'Invalid OTP code.',
+//       );
+//     } else if (e.code == 'session-expired') {
+//       throw FirebaseAuthException(
+//         code: e.code,
+//         message: 'OTP session expired. Please try again.',
+//       );
+//     } else if (e.code == 'weak-password') {
+//       throw FirebaseAuthException(
+//         code: e.code,
+//         message: 'Password is too weak.',
+//       );
+//     } else if (e.code == 'requires-recent-login') {
+//       throw FirebaseAuthException(
+//         code: e.code,
+//         message: 'Please verify OTP again.',
+//       );
+//     }
+//     rethrow;
+//   }
+// }
+
+
+
 
   // ═══════════════════════════════════════════════════════════════
   // UTILITY METHODS
