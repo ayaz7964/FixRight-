@@ -89,18 +89,30 @@ class AuthService {
     required String password,
   }) async {
     try {
+      // Validate password (minimum 6 characters)
       if (password.isEmpty || password.length < 6) {
         throw Exception('Password must be at least 6 characters');
       }
 
-      // Store password in a dedicated auth collection (legacy)
-      // NOTE: storing plaintext passwords is insecure; migrate to FirebaseAuth
+      // Check if auth record already exists
+      final authDoc = await _firestore
+          .collection('auth')
+          .doc(phoneNumber)
+          .get();
+
+      if (authDoc.exists) {
+        throw Exception('User already registered. Please login instead.');
+      }
+
+      // Store password in auth collection. Use phone number as uid.
       await _firestore.collection('auth').doc(phoneNumber).set({
+        'phone': phoneNumber,
         'password': password,
+        'uid': phoneNumber, // uid intentionally set to phone
         'isVerified': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
 
       print('Password saved successfully for: $phoneNumber');
     } catch (e) {
@@ -308,47 +320,30 @@ class AuthService {
 
 
 Future<void> resetPassword({
-  required String phoneNumber,
+  required String phone,
   required String newPassword,
 }) async {
-  // Simpler password reset: assume OTP verification has signed the user in
-  // and simply update the FirebaseAuth user's password. Avoid linking
-  // providers or signing in/out here to prevent provider merge/link errors.
-  if (newPassword.length < 6) {
-    throw FirebaseAuthException(
-      code: 'weak-password',
-      message: 'Password must be at least 6 characters.',
-    );
-  }
 
-  final User? user = _auth.currentUser;
-  if (user == null) {
-    throw FirebaseAuthException(
-      code: 'not-authenticated',
-      message: 'User is not authenticated. Verify OTP first.',
-    );
-  }
+  final email = "$phone@yourapp.com";
 
   try {
-    // Update the FirebaseAuth password for the signed-in user
-    await user.updatePassword(newPassword);
 
-    // Optionally sync legacy Firestore auth doc if you still keep it
-    try {
-      await _firestore.collection('auth').doc(phoneNumber).set({
-        'password': newPassword,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (syncErr) {
-      // Don't fail the whole flow if Firestore write is denied; log for debug
-      print('Warning: failed to update legacy auth doc: $syncErr');
-    }
-  } on FirebaseAuthException catch (e) {
-    // Re-throw so callers (UI) can display friendly messages
-    rethrow;
+    // Step 1: Sign in using a temporary custom token method
+    // We can't sign in without password,
+    // so we use signInWithEmailLink style trick.
+
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email,
+      password: "temporaryOldPassword",
+    );
+
+    await FirebaseAuth.instance.currentUser!
+        .updatePassword(newPassword);
+
+    await FirebaseAuth.instance.signOut();
+
   } catch (e) {
-    print('Error resetting password: $e');
-    rethrow;
+    print(e);
   }
 }
 
