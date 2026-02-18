@@ -319,6 +319,10 @@ class AuthService {
   // }
 
 
+   
+
+//kay 
+// throw errorr and handling them 
 
 // problem is found and moving toward the solution of 
 // reseeting the forward code 
