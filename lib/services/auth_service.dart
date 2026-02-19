@@ -326,6 +326,9 @@ class AuthService {
 
 // problem is found and moving toward the solution of 
 // reseeting the forward code 
+// okay so that we had start developing the code 
+
+// code is ready for being used 
 Future<void> resetPassword({
   required String phone,
   required String newPassword,
