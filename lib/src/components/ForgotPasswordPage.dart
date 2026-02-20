@@ -59,9 +59,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       }
 
       final authData = authDoc.data() as Map<String, dynamic>;
-      final password = authData['password'] ?? 'Password not set';
+      oldPasswordIs = authData['password'] ?? 'Password not set';
 
-      print('Password for $phoneNumber: $password');
+      print('Password for $phoneNumber: $oldPasswordIs');
     } catch (e) {
       print('Error fetching password: $e');
       rethrow;
@@ -169,6 +169,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             duration: Duration(seconds: 2),
           ),
         );
+      await  _fetchOldPassword();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -668,7 +669,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                             ),
                           ),
 
-                          Text("Password is"),
+                          Text("The Password of your " , style: TextStyle(fontWeight:FontWeight.bold),),
+                          Text(phoneNumber),
+                          Text("Password is "),
+                          Text(oldPasswordIs)
+
                         ],
                       ),
                       //   children: [
