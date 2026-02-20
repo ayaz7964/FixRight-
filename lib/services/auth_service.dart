@@ -276,10 +276,30 @@ class AuthService {
   // ═══════════════════════════════════════════════════════════════
   // FORGOT PASSWORD FLOW
   // ═══════════════════════════════════════════════════════════════
+   
 
-  /// Reset password after OTP verification
-  /// Only updates Firestore auth document - simple and clean
-  /// Firebase Auth will be updated automatically when user logs in
+  Future<void> showPassword  ({
+  required String phoneNumber
+  }) async{
+  try {
+      final authDoc = await _firestore
+          .collection('auth')
+          .doc(phoneNumber)
+          .get();
+
+      if (!authDoc.exists) {
+        throw Exception('User not found.');
+      }
+
+      final authData = authDoc.data() as Map<String, dynamic>;
+      final password = authData['password'] ?? 'Password not set';
+
+      print('Password for $phoneNumber: $password');
+    } catch (e) {
+      print('Error fetching password: $e');
+      rethrow;
+    }
+  }
   
 
 
