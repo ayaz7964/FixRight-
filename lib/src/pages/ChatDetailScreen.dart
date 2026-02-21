@@ -7,6 +7,8 @@ import '../models/user_model.dart';
 import '../../services/chat_service.dart';
 import '../../services/translation_service.dart';
 import '../../services/user_presence_service.dart';
+import '../../services/auth_session_service.dart';
+import '../../services/user_session.dart' as user_session;
 import 'AudioCallScreen.dart';
 
 class ChatDetailScreen extends StatefulWidget {
@@ -40,11 +42,31 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   String _selectedLanguage = 'en';
   final ScrollController _scrollController = ScrollController();
 
+  String _normalizePhoneForDoc(String raw) {
+    if (raw.isEmpty) return '';
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return '';
+    return '+$digits';
+  }
+
   @override
   void initState() {
     super.initState();
-    // Use phone number from Firebase Auth or passed otherUserId (both are phone numbers)
-    _currentUserId = _auth.currentUser?.phoneNumber ?? '';
+    // Resolve current user phone from FirebaseAuth / email-alias / UserSession
+    final cu = _auth.currentUser;
+    String phone = '';
+    if (cu != null) {
+      if ((cu.phoneNumber ?? '').isNotEmpty) {
+        phone = cu.phoneNumber!;
+      } else if ((cu.email ?? '').contains(AuthSessionService.emailDomain)) {
+        phone = cu.email!.replaceAll(AuthSessionService.emailDomain, '');
+      } else if ((user_session.UserSession().phone ?? '').isNotEmpty) {
+        phone = user_session.UserSession().phone!;
+      } else {
+        phone = user_session.UserSession().uid ?? '';
+      }
+    }
+    _currentUserId = _normalizePhoneForDoc(phone);
     _loadCurrentUser();
 
     // Mark all unread messages as read when chat is opened

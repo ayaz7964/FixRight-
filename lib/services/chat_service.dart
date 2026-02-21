@@ -5,11 +5,37 @@ import '../src/models/chat_conversation_model.dart';
 import '../src/models/enhanced_message_model.dart';
 import '../src/models/user_model.dart';
 import 'translation_service.dart';
+import 'auth_session_service.dart';
+import 'user_session.dart' as user_session;
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TranslationService _translationService = TranslationService();
+
+  String _normalizePhoneForDoc(String raw) {
+    if (raw.isEmpty) return '';
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return '';
+    return '+$digits';
+  }
+
+  String? _resolveCurrentUserPhone() {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    String phone = '';
+    if ((user.phoneNumber ?? '').isNotEmpty) {
+      phone = user.phoneNumber!;
+    } else if ((user.email ?? '').contains(AuthSessionService.emailDomain)) {
+      phone = user.email!.replaceAll(AuthSessionService.emailDomain, '');
+    } else if ((user_session.UserSession().phone ?? '').isNotEmpty) {
+      phone = user_session.UserSession().phone!;
+    } else if ((user_session.UserSession().uid ?? '').isNotEmpty) {
+      phone = user_session.UserSession().uid!;
+    }
+    final normalized = _normalizePhoneForDoc(phone);
+    return normalized.isEmpty ? null : normalized;
+  }
 
   /// Create or get a conversation between two users
   Future<ChatConversation> getOrCreateConversation({
@@ -217,8 +243,8 @@ class ChatService {
   /// Get conversations for current user
   /// Fetches conversations without composite index and sorts client-side
   Stream<List<ChatConversation>> getUserConversations() {
-    // Use phone number as user ID (FixRight architecture)
-    final currentUserId = _auth.currentUser?.phoneNumber;
+    // Resolve current user's phone id (handles email alias fallback)
+    final currentUserId = _resolveCurrentUserPhone();
     if (currentUserId == null) return const Stream.empty();
 
     return _firestore
@@ -256,7 +282,7 @@ class ChatService {
   /// Search conversations
   Future<List<ChatConversation>> searchConversations(String query) async {
     try {
-      final currentUserId = _auth.currentUser?.phoneNumber;
+      final currentUserId = _resolveCurrentUserPhone();
       if (currentUserId == null) return [];
 
       // Get all conversations and filter locally (Firestore doesn't support complex text search easily)
@@ -297,7 +323,7 @@ class ChatService {
   /// Mark all messages as seen
   Future<void> markConversationAsSeen(String conversationId) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
+      final currentUserId = _resolveCurrentUserPhone();
       if (currentUserId == null) return;
 
       await _firestore.collection('conversations').doc(conversationId).update({
@@ -313,7 +339,7 @@ class ChatService {
   /// Uses batch writes for efficiency and updates lastReadAt timestamp
   Future<void> markMessagesAsRead(String conversationId) async {
     try {
-      final currentUserId = _auth.currentUser?.phoneNumber;
+      final currentUserId = _resolveCurrentUserPhone();
       if (currentUserId == null) return;
 
       // Get all unread messages where current user is the receiver

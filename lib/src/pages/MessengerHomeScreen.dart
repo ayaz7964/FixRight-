@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/chat_conversation_model.dart';
 import '../../services/chat_service.dart';
 import '../../services/translation_service.dart';
+import '../../services/auth_session_service.dart';
+import '../../services/user_session.dart';
 import 'ChatDetailScreen.dart';
 import 'CallsListScreen.dart';
 
@@ -29,11 +31,71 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
 
   final _searchController = TextEditingController();
 
+  // Normalize phone input/email local-part to Firestore doc ID format: +<digits>
+  String _normalizePhoneForDoc(String raw) {
+    if (raw.isEmpty) return '';
+    // Extract digits only, then prefix with +
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return '';
+    return '+$digits';
+  }
+
+  /// Try fetching a user document by trying several phone-id variants.
+  /// Returns the first existing document or null.
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _fetchUserDoc(
+    String phone,
+  ) async {
+    if (phone.isEmpty) return null;
+    final candidates = <String>{};
+
+    // normalized (should be '+digits')
+    final normalized = _normalizePhoneForDoc(phone);
+    if (normalized.isNotEmpty) candidates.add(normalized);
+
+    // digits only (no plus)
+    final digitsOnly = normalized.replaceAll('+', '');
+    if (digitsOnly.isNotEmpty) candidates.add(digitsOnly);
+
+    // leading zero variant (common in some datasets)
+    if (digitsOnly.startsWith('92')) {
+      candidates.add('0${digitsOnly.substring(2)}');
+    }
+
+    for (final id in candidates) {
+      try {
+        final doc = await _firestore.collection('users').doc(id).get();
+        if (doc.exists) return doc;
+      } catch (e) {
+        // ignore and try next
+      }
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
     // Use phone number as user ID (FixRight architecture)
-    _currentUserId = _auth.currentUser?.phoneNumber ?? '';
+    // Resolve current user id (phone) using same strategy as contact actions
+    final cu = _auth.currentUser;
+    if (cu != null) {
+      if ((cu.phoneNumber ?? '').isNotEmpty) {
+        _currentUserId = cu.phoneNumber!;
+      } else if ((cu.email ?? '').contains(AuthSessionService.emailDomain)) {
+        _currentUserId = cu.email!.replaceAll(
+          AuthSessionService.emailDomain,
+          '',
+        );
+      } else if ((UserSession().phone ?? '').isNotEmpty) {
+        _currentUserId = UserSession().phone!;
+      } else {
+        _currentUserId = UserSession().uid ?? '';
+      }
+    } else {
+      _currentUserId = '';
+    }
+    // Normalize to Firestore doc ID format (+digits)
+    _currentUserId = _normalizePhoneForDoc(_currentUserId);
     _loadUserPreferences();
     _migrateConversationData();
   }
@@ -393,10 +455,25 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             return;
           }
 
-          // Use phone number from Firebase Auth (currentUser.phoneNumber is already set)
-          final currentUserPhone = currentUser.phoneNumber ?? '';
+          // Resolve current user phone from multiple sources and normalize
+          String currentUserPhone = '';
+          if ((currentUser.phoneNumber ?? '').isNotEmpty) {
+            currentUserPhone = currentUser.phoneNumber!;
+          } else if ((currentUser.email ?? '').contains(
+            AuthSessionService.emailDomain,
+          )) {
+            currentUserPhone = currentUser.email!.replaceAll(
+              AuthSessionService.emailDomain,
+              '',
+            );
+          } else if ((UserSession().phone ?? '').isNotEmpty) {
+            currentUserPhone = UserSession().phone!;
+          } else if ((UserSession().uid ?? '').isNotEmpty) {
+            currentUserPhone = UserSession().uid!;
+          }
+          currentUserPhone = _normalizePhoneForDoc(currentUserPhone);
           // Get phone from userId (which is doc.id - the phone number in Firestore schema)
-          final otherUserPhone = user['userId'] ?? '';
+          final otherUserPhone = _normalizePhoneForDoc(user['userId'] ?? '');
 
           if (currentUserPhone.isEmpty || otherUserPhone.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -418,13 +495,10 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
               .get();
 
           if (!convDoc.exists) {
-            // Get current user's full profile
-            final currentUserDoc = await _firestore
-                .collection('users')
-                .doc(currentUserPhone)
-                .get();
+            // Get current user's full profile (try multiple id variants)
+            final currentUserDoc = await _fetchUserDoc(currentUserPhone);
 
-            if (!currentUserDoc.exists) {
+            if (currentUserDoc == null || !currentUserDoc.exists) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Your profile not found')),
               );
@@ -673,14 +747,39 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                         return;
                       }
 
-                      final currentUserPhone = currentUser.phoneNumber ?? '';
-                      final otherUserPhone = user['userId'] ?? '';
+                      // Resolve phone number from multiple possible sources:
+                      // 1) FirebaseAuth.phoneNumber
+                      // 2) Email alias (local-part) created by AuthSessionService
+                      // 3) Fallback to cached UserSession values
+                      String currentUserPhone = '';
+
+                      if ((currentUser.phoneNumber ?? '').isNotEmpty) {
+                        currentUserPhone = currentUser.phoneNumber!;
+                      } else if ((currentUser.email ?? '').contains(
+                        AuthSessionService.emailDomain,
+                      )) {
+                        currentUserPhone = currentUser.email!.replaceAll(
+                          AuthSessionService.emailDomain,
+                          '',
+                        );
+                      } else if ((UserSession().phone ?? '').isNotEmpty) {
+                        currentUserPhone = UserSession().phone!;
+                      } else if ((UserSession().uid ?? '').isNotEmpty) {
+                        currentUserPhone = UserSession().uid!;
+                      }
+                      currentUserPhone = _normalizePhoneForDoc(
+                        currentUserPhone,
+                      );
+
+                      final otherUserPhone = _normalizePhoneForDoc(
+                        user['userId'] ?? '',
+                      );
 
                       if (currentUserPhone.isEmpty || otherUserPhone.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Phone number not found line 680 MessageHome ' 
-                              //Phone number not found line 680 MessageHome 
+                            content: Text(
+                              'Phone number not found. Please login or complete your profile.',
                             ),
                           ),
                         );
@@ -696,12 +795,11 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                           .get();
 
                       if (!convDoc.exists) {
-                        final currentUserDoc = await _firestore
-                            .collection('users')
-                            .doc(currentUserPhone)
-                            .get();
+                        final currentUserDoc = await _fetchUserDoc(
+                          currentUserPhone,
+                        );
 
-                        if (!currentUserDoc.exists) {
+                        if (currentUserDoc == null || !currentUserDoc.exists) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Your profile not found'),
