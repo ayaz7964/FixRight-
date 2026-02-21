@@ -90,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             });
             print('User role automatically updated to seller');
           } catch (e) {
-            print('Error auto-updating user role: $e');   
+            print('Error auto-updating user role: $e');
           }
         }
 

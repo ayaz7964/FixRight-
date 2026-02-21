@@ -444,7 +444,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     }
 
     return GestureDetector(
-      onTap: () async {
+          onTap: () async {
         // Create or navigate to conversation
         try {
           final currentUser = _auth.currentUser;

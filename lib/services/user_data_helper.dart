@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'user_session.dart';
 import 'package:geolocator/geolocator.dart';
 import 'user_session.dart';
 import 'location_service.dart';
@@ -12,6 +14,67 @@ class UserDataHelper {
   /// Get the current user's phone UID
   static String? getCurrentPhoneUID() {
     return UserSession().phoneUID;
+  }
+
+  /// Resolve phone-based UID for the currently authenticated Firebase user.
+  ///
+  /// Flow:
+  /// 1. If `UserSession().phoneUID` is available return it (fast path).
+  /// 2. If `FirebaseAuth.instance.currentUser.phoneNumber` exists return it.
+  /// 3. If `currentUser.email` is present and matches the app alias format,
+  ///    attempt to reconstruct the phone (prefix with '+') and check users collection.
+  /// 4. Query `users` collection for a document with `firebaseUid == currentUser.uid`.
+  /// 5. If found, cache to `UserSession().setPhoneUID(...)` and return.
+  /// 6. Returns null if no mapping found.
+  static Future<String?> resolvePhoneUID() async {
+    // 1. fast path - session cache
+    final cached = UserSession().phoneUID;
+    if (cached != null && cached.isNotEmpty) return cached;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+
+    // 2. If FirebaseAuth has phoneNumber (rare for email-based login)
+    final phoneFromAuth = user.phoneNumber;
+    if (phoneFromAuth != null && phoneFromAuth.isNotEmpty) {
+      UserSession().setPhoneUID(phoneFromAuth);
+      return phoneFromAuth;
+    }
+
+    // 3. Try reconstructing from email alias (created by AuthSessionService)
+    final email = user.email;
+    if (email != null && email.isNotEmpty) {
+      final local = email.split('@').first;
+      final digits = local.replaceAll(RegExp(r'[^\d]'), '');
+      if (digits.isNotEmpty) {
+        final candidate = '+$digits';
+        try {
+          final doc = await _firestore.collection('users').doc(candidate).get();
+          if (doc.exists) {
+            // cache mapping for faster lookups later and add firebaseUid to doc
+            try {
+              await _firestore.collection('users').doc(candidate).set({'firebaseUid': user.uid}, SetOptions(merge: true));
+            } catch (_) {}
+            UserSession().setPhoneUID(candidate);
+            return candidate;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 4. Query users collection for firebaseUid field
+    try {
+      final q = await _firestore.collection('users').where('firebaseUid', isEqualTo: user.uid).limit(1).get();
+      if (q.docs.isNotEmpty) {
+        final docId = q.docs.first.id;
+        UserSession().setPhoneUID(docId);
+        return docId;
+      }
+    } catch (e) {
+      print('Error resolving phone UID: $e');
+    }
+
+    return null;
   }
 
   /// Check if user is authenticated
