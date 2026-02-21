@@ -400,7 +400,9 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
 
           if (currentUserPhone.isEmpty || otherUserPhone.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Phone number not found')),
+              const SnackBar(
+                content: Text('Phone number not found  line 403 MessageHome'),
+              ),
             );
             return;
           }
@@ -677,7 +679,9 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                       if (currentUserPhone.isEmpty || otherUserPhone.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Phone number not found'),
+                            content: Text('Phone number not found line 680 MessageHome ' 
+                              //Phone number not found line 680 MessageHome 
+                            ),
                           ),
                         );
                         return;
