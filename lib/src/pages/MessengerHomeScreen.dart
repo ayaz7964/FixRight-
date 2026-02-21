@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/chat_conversation_model.dart';
 import '../../services/chat_service.dart';
 import '../../services/translation_service.dart';
+import '../../services/user_data_helper.dart';
 import 'ChatDetailScreen.dart';
 import 'CallsListScreen.dart';
 
@@ -33,7 +34,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
   void initState() {
     super.initState();
     // Use phone number as user ID (FixRight architecture)
-    _currentUserId = _auth.currentUser?.phoneNumber ?? '';
+    _currentUserId = UserDataHelper.getCurrentPhoneUID() ?? '';
     _loadUserPreferences();
     _migrateConversationData();
   }
@@ -382,7 +383,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     }
 
     return GestureDetector(
-      onTap: () async {
+          onTap: () async {
         // Create or navigate to conversation
         try {
           final currentUser = _auth.currentUser;
@@ -392,9 +393,8 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             ).showSnackBar(const SnackBar(content: Text('Please login first')));
             return;
           }
-
-          // Use phone number from Firebase Auth (currentUser.phoneNumber is already set)
-          final currentUserPhone = currentUser.phoneNumber ?? '';
+          // Resolve phone-based UID (handles email/login alias -> phone mapping)
+          final currentUserPhone = await UserDataHelper.resolvePhoneUID() ?? '';
           // Get phone from userId (which is doc.id - the phone number in Firestore schema)
           final otherUserPhone = user['userId'] ?? '';
 
@@ -672,8 +672,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                         );
                         return;
                       }
-
-                      final currentUserPhone = currentUser.phoneNumber ?? '';
+                      final currentUserPhone = await UserDataHelper.resolvePhoneUID() ?? '';
                       final otherUserPhone = user['userId'] ?? '';
 
                       if (currentUserPhone.isEmpty || otherUserPhone.isEmpty) {

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'user_data_helper.dart';
 
 /// Service to manage user online/offline presence using a dedicated Firestore collection
 /// This provides reliable presence tracking across app lifecycle
@@ -14,10 +15,7 @@ class UserPresenceService {
   /// Should be called once after user authentication
   Future<void> initializePresence() async {
     try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return;
-
-      final phoneUID = currentUser.phoneNumber;
+      final phoneUID = await UserDataHelper.resolvePhoneUID();
       if (phoneUID == null || phoneUID.isEmpty) return;
 
       // Create presence document with online status
@@ -37,10 +35,7 @@ class UserPresenceService {
   /// Must complete before signing out user from Firebase Auth
   Future<void> setOfflineBeforeLogout() async {
     try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return;
-
-      final phoneUID = currentUser.phoneNumber;
+      final phoneUID = await UserDataHelper.resolvePhoneUID();
       if (phoneUID == null || phoneUID.isEmpty) return;
 
       // Set offline with current timestamp
@@ -60,10 +55,7 @@ class UserPresenceService {
   /// Called when app resumes (online) or pauses (offline)
   Future<void> updatePresence(bool isOnline) async {
     try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return;
-
-      final phoneUID = currentUser.phoneNumber;
+      final phoneUID = await UserDataHelper.resolvePhoneUID();
       if (phoneUID == null || phoneUID.isEmpty) return;
 
       // Create or update presence document

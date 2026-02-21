@@ -5,6 +5,7 @@ import '../src/models/chat_conversation_model.dart';
 import '../src/models/enhanced_message_model.dart';
 import '../src/models/user_model.dart';
 import 'translation_service.dart';
+import 'user_data_helper.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -218,13 +219,13 @@ class ChatService {
   /// Fetches conversations without composite index and sorts client-side
   Stream<List<ChatConversation>> getUserConversations() {
     // Use phone number as user ID (FixRight architecture)
-    final currentUserId = _auth.currentUser?.phoneNumber;
+    final currentUserId = UserDataHelper.getCurrentPhoneUID();
     if (currentUserId == null) return const Stream.empty();
 
     return _firestore
-        .collection('conversations')
-        .where('participantIds', arrayContains: currentUserId)
-        .snapshots()
+      .collection('conversations')
+      .where('participantIds', arrayContains: currentUserId)
+      .snapshots()
         .map((snapshot) {
           try {
             final conversations = snapshot.docs
@@ -256,7 +257,7 @@ class ChatService {
   /// Search conversations
   Future<List<ChatConversation>> searchConversations(String query) async {
     try {
-      final currentUserId = _auth.currentUser?.phoneNumber;
+      final currentUserId = UserDataHelper.getCurrentPhoneUID();
       if (currentUserId == null) return [];
 
       // Get all conversations and filter locally (Firestore doesn't support complex text search easily)
@@ -297,7 +298,7 @@ class ChatService {
   /// Mark all messages as seen
   Future<void> markConversationAsSeen(String conversationId) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
+      final currentUserId = UserDataHelper.getCurrentPhoneUID();
       if (currentUserId == null) return;
 
       await _firestore.collection('conversations').doc(conversationId).update({
@@ -313,7 +314,7 @@ class ChatService {
   /// Uses batch writes for efficiency and updates lastReadAt timestamp
   Future<void> markMessagesAsRead(String conversationId) async {
     try {
-      final currentUserId = _auth.currentUser?.phoneNumber;
+      final currentUserId = UserDataHelper.getCurrentPhoneUID();
       if (currentUserId == null) return;
 
       // Get all unread messages where current user is the receiver
@@ -489,10 +490,92 @@ class ChatService {
     return '${ids[0]}_${ids[1]}';
   }
 
+  /// Safe helper to initiate contact (create conversation if missing and navigate)
+  /// - `otherUserPhone` must be the Firestore document id (phone-based UID)
+  /// - `otherUserName` and `otherUserImage` are optional display data
+  Future<void> initiateContact(
+    BuildContext context, {
+    required String otherUserPhone,
+    required String otherUserName,
+    String? otherUserImage,
+  }) async {
+    try {
+      final currentUserPhone = await UserDataHelper.resolvePhoneUID();
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login first')),
+        );
+        return;
+      }
+
+      if (otherUserPhone.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User phone not found')),
+        );
+        return;
+      }
+
+      final phones = [currentUserPhone, otherUserPhone]..sort();
+      final conversationId = '${phones[0]}_${phones[1]}';
+
+      final convDoc = await _firestore.collection('conversations').doc(conversationId).get();
+      if (!convDoc.exists) {
+        final currentUserDoc = await _firestore.collection('users').doc(currentUserPhone).get();
+        if (!currentUserDoc.exists) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Your profile not found')),
+          );
+          return;
+        }
+
+        final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+
+        await _firestore.collection('conversations').doc(conversationId).set({
+          'participantIds': [currentUserPhone, otherUserPhone],
+          'participantNames': {
+            currentUserPhone: '${currentUserData['firstName'] ?? ''} ${currentUserData['lastName'] ?? ''}'.trim(),
+            otherUserPhone: otherUserName,
+          },
+          'participantRoles': {
+            currentUserPhone: currentUserData['role'] ?? 'buyer',
+            otherUserPhone: currentUserData['role'] ?? 'buyer',
+          },
+          'participantProfileImages': {
+            currentUserPhone: currentUserData['profileImageUrl'] ?? '',
+            otherUserPhone: otherUserImage ?? '',
+          },
+          'lastMessage': '',
+          'lastMessageAt': Timestamp.now(),
+          'createdAt': Timestamp.now(),
+          'unreadCounts': {currentUserPhone: 0, otherUserPhone: 0},
+        });
+      }
+
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatDetailScreen(
+              conversationId: conversationId,
+              otherUserId: otherUserPhone,
+              otherUserName: otherUserName,
+              otherUserImage: otherUserImage,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error initiating contact: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+    }
+  }
+
   /// Get unread message count
   Future<int> getUnreadCount(String conversationId) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
+      final currentUserId = UserDataHelper.getCurrentPhoneUID();
       if (currentUserId == null) return 0;
 
       final doc = await _firestore
@@ -563,7 +646,7 @@ class ChatService {
     if (query.isEmpty) return [];
 
     try {
-      final currentUserId = _auth.currentUser?.uid;
+      final currentUserId = UserDataHelper.getCurrentPhoneUID();
       final queryTrim = query.trim();
       final queryLower = queryTrim.toLowerCase();
 
@@ -674,10 +757,10 @@ class ChatService {
   /// Create or retrieve a conversation id between current user and target user
   Future<String?> startConversationWithUser(String targetUserId) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
-      if (currentUserId == null) return null;
+        final currentUserId = UserDataHelper.getCurrentPhoneUID();
+        if (currentUserId == null) return null;
 
-      final currentDoc = await _firestore
+        final currentDoc = await _firestore
           .collection('users')
           .doc(currentUserId)
           .get();
@@ -712,9 +795,9 @@ class ChatService {
     double radiusKm = 10.0,
   }) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
+        final currentUserId = UserDataHelper.getCurrentPhoneUID();
 
-      // Fetch all sellers
+        // Fetch all sellers
       final snapshot = await _firestore
           .collection('users')
           .where('role', isEqualTo: 'Seller')
@@ -778,9 +861,9 @@ class ChatService {
   /// Get sellers by skill
   Future<List<Map<String, dynamic>>> getSellersBySkill(String skill) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
+        final currentUserId = UserDataHelper.getCurrentPhoneUID();
 
-      final snapshot = await _firestore
+        final snapshot = await _firestore
           .collection('users')
           .where('role', isEqualTo: 'Seller')
           .where('skills', arrayContains: skill)
@@ -819,9 +902,9 @@ class ChatService {
   /// Get sellers in same city
   Future<List<Map<String, dynamic>>> getSellersSameCity(String city) async {
     try {
-      final currentUserId = _auth.currentUser?.uid;
+        final currentUserId = UserDataHelper.getCurrentPhoneUID();
 
-      final snapshot = await _firestore
+        final snapshot = await _firestore
           .collection('users')
           .where('role', isEqualTo: 'Seller')
           .where('city', isEqualTo: city)

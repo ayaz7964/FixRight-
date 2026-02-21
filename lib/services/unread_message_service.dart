@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'user_data_helper.dart';
 
 /// Service to manage unread message counts and read receipts
 /// Provides real-time streams for both total and per-conversation unread status
@@ -10,7 +11,7 @@ class UnreadMessageService {
   /// Get real-time stream of total unread message count across all conversations
   /// Updates immediately when messages are marked as read
   Stream<int> getTotalUnreadCount() {
-    final currentUserId = _auth.currentUser?.phoneNumber;
+    final currentUserId = UserDataHelper.getCurrentPhoneUID();
     if (currentUserId == null) return Stream.value(0);
 
     return _firestore
@@ -35,7 +36,7 @@ class UnreadMessageService {
   /// Get real-time stream of unread count for a specific conversation
   /// Useful for showing unread badge in chat list that updates in real-time
   Stream<int> getConversationUnreadCountStream(String conversationId) {
-    final currentUserId = _auth.currentUser?.phoneNumber;
+    final currentUserId = UserDataHelper.getCurrentPhoneUID();
     if (currentUserId == null) return Stream.value(0);
 
     return _firestore
@@ -53,7 +54,7 @@ class UnreadMessageService {
   /// Get unread count for a specific conversation (one-time fetch)
   Future<int> getConversationUnreadCount(String conversationId) async {
     try {
-      final currentUserId = _auth.currentUser?.phoneNumber;
+      final currentUserId = UserDataHelper.getCurrentPhoneUID();
       if (currentUserId == null) return 0;
 
       final doc = await _firestore
@@ -85,7 +86,7 @@ class UnreadMessageService {
   /// Returns null if never read
   Future<Timestamp?> getLastReadTimestamp(String conversationId) async {
     try {
-      final currentUserId = _auth.currentUser?.phoneNumber;
+      final currentUserId = UserDataHelper.getCurrentPhoneUID();
       if (currentUserId == null) return null;
 
       final doc = await _firestore
@@ -112,7 +113,7 @@ class UnreadMessageService {
   /// Note: Use ChatService.markMessagesAsRead() instead for full functionality
   Future<void> markConversationAsRead(String conversationId) async {
     try {
-      final currentUserId = _auth.currentUser?.phoneNumber;
+      final currentUserId = UserDataHelper.getCurrentPhoneUID();
       if (currentUserId == null) return;
 
       await _firestore.collection('conversations').doc(conversationId).update({

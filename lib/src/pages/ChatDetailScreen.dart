@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/user_data_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/enhanced_message_model.dart';
 import '../models/user_model.dart';
@@ -43,8 +44,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Use phone number from Firebase Auth or passed otherUserId (both are phone numbers)
-    _currentUserId = _auth.currentUser?.phoneNumber ?? '';
+    // Use phone number from session cache (FixRight architecture)
+    _currentUserId = UserDataHelper.getCurrentPhoneUID() ?? '';
     _loadCurrentUser();
 
     // Mark all unread messages as read when chat is opened
