@@ -54,10 +54,14 @@ class ServiceCategoryChips extends StatelessWidget {
                 ],
               ),
             ),
-          ))
+          )
+          
+          )
           ;
         },
       ),
+
+      
     );
   }
 }

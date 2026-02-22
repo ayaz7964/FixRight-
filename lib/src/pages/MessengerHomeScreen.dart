@@ -426,6 +426,8 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     );
   }
 
+
+ // setuping the profile picture and ui of message 
   /// Build individual search result tile with seller info
   Widget _buildSearchResultTile(Map<String, dynamic> user) {
     final fullName = user['fullName'] ?? 'Unknown';

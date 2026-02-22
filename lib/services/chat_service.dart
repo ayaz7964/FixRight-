@@ -84,6 +84,62 @@ class ChatService {
     }
   }
 
+  /// Initiate a conversation between the current user and another user.
+  ///
+  /// Accepts either phone-style IDs (e.g. '+9231...') or plain digits, and
+  /// returns the existing or newly created `ChatConversation`.
+  Future<ChatConversation> initiateConversation({
+    required String currentUserId,
+    required String otherUserId,
+  }) async {
+    // Normalize both IDs to the canonical document format
+    final idA = _normalizePhoneForDoc(currentUserId);
+    final idB = _normalizePhoneForDoc(otherUserId);
+
+    // Helper to load a user doc with a small fallback (try without '+' if needed)
+    Future<DocumentSnapshot> _loadUserDoc(String id) async {
+      final doc = await _firestore.collection('users').doc(id).get();
+      if (doc.exists) return doc;
+      final altId = id.startsWith('+') ? id.replaceFirst('+', '') : '+$id';
+      final altDoc = await _firestore.collection('users').doc(altId).get();
+      return altDoc;
+    }
+
+    final currentDoc = await _loadUserDoc(idA);
+    final otherDoc = await _loadUserDoc(idB);
+
+    // Build lightweight UserModel instances; if profile not found, use defaults
+    final user1 = currentDoc.exists
+        ? UserModel.fromDoc(currentDoc)
+        : UserModel(
+            uid: idA,
+            phoneNumber: idA,
+            firstName: '',
+            lastName: '',
+            profileImageUrl: null,
+            role: 'buyer',
+          );
+
+    final user2 = otherDoc.exists
+        ? UserModel.fromDoc(otherDoc)
+        : UserModel(
+            uid: idB,
+            phoneNumber: idB,
+            firstName: '',
+            lastName: '',
+            profileImageUrl: null,
+            role: 'buyer',
+          );
+
+    // Delegate to existing getOrCreateConversation which creates the conversation
+    return await getOrCreateConversation(
+      userId1: idA,
+      userId2: idB,
+      user1: user1,
+      user2: user2,
+    );
+  }
+
   /// Send a message
   /// Sets isRead=false by default, meaning the receiver hasn't read it yet
   /// Increments unreadCount for the receiver only (not the sender)

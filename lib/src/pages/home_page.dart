@@ -9,6 +9,7 @@ import '../components/TopOffersList.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
 import 'SellerDirectoryScreen.dart';
+import '../../services/chat_service.dart';
 
 class HomePage extends StatefulWidget {
   final String? phoneUID;
@@ -111,16 +112,20 @@ class HomePageState extends State<HomePage> {
           children: [
             CircleAvatar(
               radius: 25,
-              backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
+              backgroundImage: imageUrl.isNotEmpty
+                  ? NetworkImage(imageUrl)
+                  : null,
               child: imageUrl.isEmpty
-                ? Text(
-                    userFirstName.isNotEmpty ? userFirstName[0].toUpperCase() : 'U',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
+                  ? Text(
+                      userFirstName.isNotEmpty
+                          ? userFirstName[0].toUpperCase()
+                          : 'U',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -188,6 +193,21 @@ class HomePageState extends State<HomePage> {
                     FeaturedCarousel(),
                     TrustBanners(),
                     LocalWorkerHighlight(),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await ChatService().initiateConversation(
+                          currentUserId: '+923163797857',
+                          otherUserId: '+923237964483',
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Conversation initiated"),
+                          ),
+                        );
+                      },
+                      child: Text("Initate the contact"),
+                    ),
                     TopOffersList(),
                   ],
                 ),
