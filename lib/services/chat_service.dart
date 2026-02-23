@@ -141,6 +141,8 @@ class ChatService {
   }
 
   /// Send a message
+  /// 
+  /// method 
   /// Sets isRead=false by default, meaning the receiver hasn't read it yet
   /// Increments unreadCount for the receiver only (not the sender)
   Future<String> sendMessage({
