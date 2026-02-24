@@ -434,7 +434,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
   Widget _buildSearchResultTile(Map<String, dynamic> user) {
     final fullName = user['fullName'] ?? 'Unknown';
     final role = user['role'] ?? 'Unknown';
-    final profileImage = user['profileImageUrl'];
+    final profileImage = user['profileImage'];
     final skills = (user['skills'] as List<dynamic>?)?.cast<String>() ?? [];
     final rating = user['rating'] ?? 0.0;
     final reviews = user['totalReviews'] ?? 0;
@@ -526,7 +526,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                 otherUserPhone: role,
               },
               'participantProfileImages': {
-                currentUserPhone: currentUserData['profileImageUrl'] ?? '',
+                currentUserPhone: currentUserData['profileImage'] ?? '',
                 otherUserPhone: profileImage ?? '',
               },
               'lastMessage': '',
@@ -836,7 +836,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                               },
                               'participantProfileImages': {
                                 currentUserPhone:
-                                    currentUserData['profileImageUrl'] ?? '',
+                                    currentUserData['profileImage'] ?? '',
                                 otherUserPhone: profileImage ?? '',
                               },
                               'lastMessage': '',
