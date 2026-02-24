@@ -155,9 +155,11 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     return Column(
       children: [
         // Search Bar
+        Text("Here is searh bar"),
         _buildSearchBar(),
 
         // Filter Chips
+        Text('Here are search results'),
         _buildFilterSection(),
 
         // Chats List or Search Results
@@ -875,7 +877,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
                       Icon(Icons.mail_outline, size: 18),
                       SizedBox(width: 8),
                       Text(
-                        'Send Message',
+                        'Send Message is this ',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
