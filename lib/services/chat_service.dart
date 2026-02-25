@@ -86,6 +86,9 @@ class ChatService {
 
   /// Initiate a conversation between the current user and another user.
   ///
+
+
+  // will now add the start conversation 
   /// Accepts either phone-style IDs (e.g. '+9231...') or plain digits, and
   /// returns the existing or newly created `ChatConversation`.
   Future<ChatConversation> initiateConversation({

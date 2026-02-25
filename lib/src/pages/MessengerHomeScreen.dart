@@ -40,6 +40,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     return '+$digits';
   }
 
+  
   /// Try fetching a user document by trying several phone-id variants.
   /// Returns the first existing document or null.
   Future<DocumentSnapshot<Map<String, dynamic>>?> _fetchUserDoc(
@@ -71,7 +72,8 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     }
     return null;
   }
-
+  
+  
   @override
   void initState() {
     super.initState();
