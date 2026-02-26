@@ -142,7 +142,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         String ProfileImage = data['profileImage'] ?? '';
         imageUrl = ProfileImage;
 
-        // Get so there is one last issue , when the seller has applied and he also sucessfull entertain the feedback and at last when the admin have approved the seller so the issue is that instead of updating the users role to seller in users document it just giving the option became seller and accourding to our login when the admin approves the seller so the users role should be converted to seller and after that the switch bar apppers automatically and seller mode on and off and switch automaticallu status
+        // Get so there is one last issue 
+        //, when the seller has applied and he also sucessfull entertain the feedback and at last when the admin have approved the seller so the issue is that instead of updating the users role to seller in users document it just giving the option became seller and accourding to our login when the admin approves the seller so the users role should be converted to seller and after that the switch bar apppers automatically and seller mode on and off and switch automaticallu status
         final status = await _getSellerStatus();
 
         if (lat != 0 && lng != 0) {
@@ -352,7 +353,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // 1. Header Container (Dynamic Color)
             Container(
               width: double.infinity,
-              height: 200,
+              height: 230,
               padding: const EdgeInsets.only(
                 top: 20,
                 bottom: 10,
@@ -436,6 +437,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
+                  SizedBox(height: 10,),
                   const Spacer(),
                   UserRole == 'seller'
                       ? // Seller Mode Switch Container
@@ -477,7 +479,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         )
                       : // Not Seller - Show Status Button
                         Padding(
-                          padding: const EdgeInsets.all(12.0),
+                          padding: const EdgeInsets.all(14.0),
                           child: ElevatedButton(
                             onPressed:
                                 (sellerStatus == 'submitted' &&
@@ -492,6 +494,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                   ),
+  
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size(double.infinity, 50),
                               backgroundColor: adminComments.isNotEmpty

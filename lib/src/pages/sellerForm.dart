@@ -196,6 +196,13 @@ class _SellerformState extends State<Sellerform> {
         'firstName': firstName,
         'lastName': lastName,
         'mobileNumber': mobileNumber,
+        'Available_Balance':0,
+        'Deposit':0,
+        'Earning':0,
+        'Jobs_Completed':0,
+        'Pending_Jobs':0,
+        'Rating':5,
+        'Total_Jobs':0,
         'cnicFrontUrl':
             'https://i.dawn.com/primary/2015/12/566683b21750f.jpg', // Dummy URL
         'cnicBackUrl':
