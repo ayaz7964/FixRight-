@@ -202,6 +202,7 @@ class _SellerformState extends State<Sellerform> {
         'Jobs_Completed':0,
         'Pending_Jobs':0,
         'Rating':5,
+        'withdrawal_amount':0,
         'Total_Jobs':0,
         'cnicFrontUrl':
             'https://i.dawn.com/primary/2015/12/566683b21750f.jpg', // Dummy URL
