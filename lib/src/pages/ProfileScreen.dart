@@ -52,7 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String fullAddress = '';
   String imageUrl = '';
   String sellerStatus = ''; // 'none', 'submitted', 'approved'
-  String adminComments = ''; // Track admin comments
+  String adminComments = ''; // Track admip comments
 
   @override
   void initState() {
@@ -421,11 +421,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Colors.white,
                             ),
                           ),
-                          const Text(
-                            'Personal balance: \$0',
+                          Text('UserRole:$UserRole ',style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white,
+                            ),),
+                           Text(
+                            'Address: $address \nCity: $city \nCounty:  $country',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.white70,
+                              color: Colors.white,
                             ),
                           ),
                         ],
@@ -535,7 +539,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Divider(height: 15),
             _buildProfileOption(
               icon: Icons.person,
-              title: 'My Profile',
+              title: 'Update Profile',
               color: optionColor,
               // onTap: () => _showEditProfileDialog(phoneDocId),
               onTap: () => Navigator.push(
