@@ -171,6 +171,7 @@ dependencies:
   flutter_image_compress: ^2.3.0
   flutter_dotenv: ^5.1.0
   uuid: ^4.3.3
+  dotted_border: ^2.1.0
 
   # 🔹 UI / UX Packages
   carousel_slider: ^5.0.1
