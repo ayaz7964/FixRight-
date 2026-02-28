@@ -4,8 +4,8 @@ import 'dart:convert';
 
 class CloudinaryService {
   // 🔴 Replace with your actual Cloudinary credentials
-  static const String _cloudName = 'YOUR_CLOUD_NAME';
-  static const String _uploadPreset = 'YOUR_UPLOAD_PRESET'; // unsigned preset
+  static const String _cloudName = 'drimucrk6';
+  static const String _uploadPreset = 'fixright'; // unsigned preset
 
   /// Uploads an image file to Cloudinary and returns the secure URL
   static Future<String?> uploadImage(File imageFile, {String folder = 'fixright/payments'}) async {

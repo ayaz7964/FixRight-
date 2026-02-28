@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'LocationMapScreen.dart';
+import 'deposit_withdraw_page.dart';
 
 class SellerDashboardPage extends StatefulWidget {
   final String? phoneUID;
@@ -16,10 +17,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
 
   // Fetch seller data as a stream (real-time updates)
   Stream<DocumentSnapshot> _getSellerStream() {
-    return _firestore
-        .collection('sellers')
-        .doc(widget.phoneUID)
-        .snapshots();
+    return _firestore.collection('sellers').doc(widget.phoneUID).snapshots();
   }
 
   Widget _buildStatCard({
@@ -152,7 +150,9 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(20),
@@ -172,10 +172,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                     const SizedBox(height: 6),
                     Text(
                       skills.join(' • '),
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -331,13 +328,17 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     child: ListTile(
-                      leading:
-                          const Icon(Icons.work_outline, color: Colors.orange),
+                      leading: const Icon(
+                        Icons.work_outline,
+                        color: Colors.orange,
+                      ),
                       title: Text('$pendingJobs Pending Job(s)'),
-                      subtitle:
-                          const Text('Complete them to maintain your rating.'),
+                      subtitle: const Text(
+                        'Complete them to maintain your rating.',
+                      ),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {},
                     ),
@@ -346,10 +347,13 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     child: ListTile(
-                      leading: const Icon(Icons.monetization_on,
-                          color: Colors.green),
+                      leading: const Icon(
+                        Icons.monetization_on,
+                        color: Colors.green,
+                      ),
                       title: Text('Withdrawal Pending: Rs $withdrawalAmount'),
                       subtitle: const Text('Approve your funds transfer.'),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -361,7 +365,8 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                     elevation: 0,
                     color: Colors.green.withOpacity(0.08),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     child: const ListTile(
                       leading: Icon(Icons.check_circle, color: Colors.green),
                       title: Text('All caught up!'),
@@ -370,7 +375,25 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   ),
 
                 const SizedBox(height: 25),
-
+                // _buildQuickLink(
+                //   context,
+                //   'Wallet',
+                //   Icons.account_balance_wallet,
+                //   Colors.teal,
+                //   onTap: 
+                // ),
+                ElevatedButton(onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          DepositWithdrawPage(phoneUID: widget.phoneUID!),
+                    ),
+                  ), child: Column(
+                    children: const [
+                      Text('Go to Wallet'),
+                      Icon(Icons.account_balance_wallet),
+                    ],
+                  )),
                 // ── Quick Access ─────────────────────────────────
                 const Text(
                   'Quick Access',
@@ -385,13 +408,29 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   mainAxisSpacing: 8,
                   children: [
                     _buildQuickLink(
-                        context, 'Post a New Gig', Icons.add_circle, Colors.green),
+                      context,
+                      'Post a New Gig',
+                      Icons.add_circle,
+                      Colors.green,
+                    ),
                     _buildQuickLink(
-                        context, 'View Analytics', Icons.analytics, Colors.indigo),
+                      context,
+                      'View Analytics',
+                      Icons.analytics,
+                      Colors.indigo,
+                    ),
                     _buildQuickLink(
-                        context, 'Service Templates', Icons.copy, Colors.brown),
+                      context,
+                      'Service Templates',
+                      Icons.copy,
+                      Colors.brown,
+                    ),
                     _buildQuickLink(
-                        context, 'Promote Services', Icons.share, Colors.pink),
+                      context,
+                      'Promote Services',
+                      Icons.share,
+                      Colors.pink,
+                    ),
                   ],
                 ),
 
