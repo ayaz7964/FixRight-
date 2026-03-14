@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'MessengerHomeScreen.dart';
-import 'orders_page.dart';
+import 'BuyerOrdersPage.dart';
 import 'ProfileScreen.dart';
 import 'JobPostingScreen.dart';
 import '../../services/unread_message_service.dart';
@@ -41,7 +41,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
     _widgetOptions = <Widget>[
       HomePage(phoneUID: widget.phoneUID),
       const MessengerHomeScreen(), // Messages screen at content index 1
-      OrdersPage(phoneUID: widget.phoneUID),
+      BuyerOrdersPage(phoneUID: widget.phoneUID),
       ProfileScreen(
         isSellerMode: widget.isSellerMode,
         onToggleMode: widget.onToggleMode,
@@ -74,7 +74,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   void _postJob(BuildContext context) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const JobPostingScreen()));
+    ).push(MaterialPageRoute(builder: (context) => const PostJobScreen()));
   }
 
   // --- Helper for Custom Nav Item Design --- (remains the same)

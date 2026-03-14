@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'MessageChatBotScreen.dart'; // Reuse chat screen
 import 'ProfileScreen.dart'; // Reuse profile screen
 import 'JobPostingScreen.dart'; // Reuse job posting/gig creation screen (for Post Services)
-import 'ManageOrdersScreen.dart'; // Orders management screen
+import 'SellerOrdersPage.dart'; // Orders management screen
 import 'seller_dashboard_page.dart'; // Dashboard content
 import 'MessengerHomeScreen.dart'; // Messenger home screen
 import '../../services/unread_message_service.dart';
+import './PostOfferScreen.dart';
 
 class SellerMainScreen extends StatefulWidget {
   final bool isSellerMode;
@@ -44,7 +45,7 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
       ), // 0. Dashboard (Home screen replacement)
       // MessageChatBotScreen(phoneUID: widget.phoneUID), // 1. Messages
       MessengerHomeScreen(),
-      ManageOrdersScreen(
+      SellerOrdersPage(
         phoneUID: widget.phoneUID,
       ), // 2. Manage Orders/Gigs (Used as "Services")
       ProfileScreen(
@@ -75,7 +76,7 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
     // Re-use JobPostingScreen for creating a new Gig/Service
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const JobPostingScreen()));
+    ).push(MaterialPageRoute(builder: (context) => const PostOfferScreen()));
   }
 
   // --- Helper for Custom Nav Item Design ---
