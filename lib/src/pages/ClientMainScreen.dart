@@ -74,7 +74,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   void _postJob(BuildContext context) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const PostJobScreen()));
+    ).push(MaterialPageRoute(builder: (context) => PostJobScreen(phoneUID: widget.phoneUID)));
   }
 
   // --- Helper for Custom Nav Item Design --- (remains the same)
