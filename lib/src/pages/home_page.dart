@@ -229,6 +229,7 @@ import 'SellerDirectoryScreen.dart';
 // import 'ClientMyJobsScreen.dart';
 import '../components/LocalWorkerHighlight.dart';
 import '../components/TopOffersList.dart';
+import 'notification_service.dart';
 
 class HomePage extends StatefulWidget {
   final String? phoneUID;
@@ -390,8 +391,8 @@ class HomePageState extends State<HomePage> {
           if (index == 2) {
             // Navigator.push(
             //   context,
-              // MaterialPageRoute(builder: (_) => 
-              //const ClientMyJobsScreen()),
+            // MaterialPageRoute(builder: (_) =>
+            //const ClientMyJobsScreen()),
             // );
           } else {
             setState(() => _selectedIndex = index);
@@ -527,7 +528,7 @@ class HomePageState extends State<HomePage> {
                   ),
                   _buildHeaderIconButton(
                     icon: Icons.assignment_ind_outlined,
-                    onPressed: () {}
+                    onPressed: () {},
                     //=> Navigator.push(
                     //   // context,
                     //   // MaterialPageRoute(
@@ -535,9 +536,19 @@ class HomePageState extends State<HomePage> {
                     //   ),
                     // ),
                   ),
-                  _buildHeaderIconButton(
-                    icon: Icons.notifications_none_rounded,
-                    onPressed: () {},
+                  // _buildHeaderIconButton(
+                  //   icon: Icons.notifications_none_rounded,
+                  //   onPressed: () {},
+                  // ),
+                  NotificationBell(
+                    uid: widget.phoneUID ?? '', // your seller/buyer UID string
+                    color: Colors.white, // icon color to match your AppBar
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => NotificationsPage(uid: widget.phoneUID ?? ""),
+                      ),
+                    ),
                   ),
                   _buildHeaderIconButton(
                     icon: Icons.location_on_outlined,
@@ -676,8 +687,9 @@ class HomePageState extends State<HomePage> {
                 final isSelected = _selectedCategory == cat['name'];
                 return GestureDetector(
                   onTap: () => setState(() {
-                    _selectedCategory =
-                        isSelected ? null : cat['name'] as String;
+                    _selectedCategory = isSelected
+                        ? null
+                        : cat['name'] as String;
                   }),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
@@ -945,7 +957,11 @@ class HomePageState extends State<HomePage> {
             Row(
               children: [
                 if (budget != null && budget != 0) ...[
-                  Icon(Icons.attach_money, size: 16, color: Colors.teal.shade700),
+                  Icon(
+                    Icons.attach_money,
+                    size: 16,
+                    color: Colors.teal.shade700,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'PKR ${budget.toStringAsFixed(0)}',
@@ -995,8 +1011,11 @@ class HomePageState extends State<HomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Icon(Icons.visibility_outlined,
-                    size: 14, color: Colors.grey.shade400),
+                Icon(
+                  Icons.visibility_outlined,
+                  size: 14,
+                  color: Colors.grey.shade400,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'View only',
