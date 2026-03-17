@@ -1145,6 +1145,7 @@ import 'package:intl/intl.dart';
 import '../../services/user_session.dart';
 import 'notification_service.dart';
 import 'tts_translation_service.dart';
+import 'ChatDetailScreen.dart';
 
 const int    kSellerFreeOrderLimit = 3;
 const double kSellerMinBalance     = 500.0;
@@ -2006,21 +2007,60 @@ class _ActiveJobCardState extends State<_ActiveJobCard> {
     finally { if (mounted) setState(() => _isCompleting = false); }
   }
 
-  Future<void> _openChat(BuildContext context) async {
-    final buyerId    = widget.jobData['postedBy']??'';
-    final posterName = widget.jobData['posterName']??'Client';
-    if (buyerId.isEmpty) return;
-    final db = FirebaseFirestore.instance;
-    final phones = [widget.sellerUid, buyerId]..sort();
-    final convId = '${phones[0]}_${phones[1]}';
-    if (!(await db.collection('conversations').doc(convId).get()).exists) {
-      final buyerDoc = await db.collection('users').doc(buyerId).get(); final buyerData = buyerDoc.data()??{};
-      final sellerDoc = await db.collection('users').doc(widget.sellerUid).get(); final sellerData = sellerDoc.data()??{};
-      await db.collection('conversations').doc(convId).set({'participantIds': [widget.sellerUid, buyerId], 'participantNames': {widget.sellerUid: '${sellerData['firstName']??''} ${sellerData['lastName']??''}'.trim(), buyerId: posterName}, 'participantRoles': {widget.sellerUid: 'seller', buyerId: 'buyer'}, 'participantProfileImages': {widget.sellerUid: sellerData['profileImage']??'', buyerId: buyerData['profileImage']??''}, 'lastMessage': '', 'lastMessageAt': Timestamp.now(), 'createdAt': Timestamp.now(), 'unreadCounts': {widget.sellerUid: 0, buyerId: 0}, 'relatedJobId': widget.jobId, 'relatedJobTitle': widget.jobData['title']??''});
-    }
-    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chat opened with $posterName')));
+  // Future<void> _openChat(BuildContext context) async {
+  //   final buyerId    = widget.jobData['postedBy']??'';
+  //   final posterName = widget.jobData['posterName']??'Client';
+  //   if (buyerId.isEmpty) return;
+  //   final db = FirebaseFirestore.instance;
+  //   final phones = [widget.sellerUid, buyerId]..sort();
+  //   final convId = '${phones[0]}_${phones[1]}';
+  //   if (!(await db.collection('conversations').doc(convId).get()).exists) {
+  //     final buyerDoc = await db.collection('users').doc(buyerId).get(); final buyerData = buyerDoc.data()??{};
+  //     final sellerDoc = await db.collection('users').doc(widget.sellerUid).get(); final sellerData = sellerDoc.data()??{};
+  //     await db.collection('conversations').doc(convId).set({'participantIds': [widget.sellerUid, buyerId], 'participantNames': {widget.sellerUid: '${sellerData['firstName']??''} ${sellerData['lastName']??''}'.trim(), buyerId: posterName}, 'participantRoles': {widget.sellerUid: 'seller', buyerId: 'buyer'}, 'participantProfileImages': {widget.sellerUid: sellerData['profileImage']??'', buyerId: buyerData['profileImage']??''}, 'lastMessage': '', 'lastMessageAt': Timestamp.now(), 'createdAt': Timestamp.now(), 'unreadCounts': {widget.sellerUid: 0, buyerId: 0}, 'relatedJobId': widget.jobId, 'relatedJobTitle': widget.jobData['title']??''});
+  //   }
+  //   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chat opened with $posterName')));
+  // }
+
+Future<void> _openChat(BuildContext context) async {
+  final buyerId    = widget.jobData['postedBy']   as String? ?? '';
+  final posterName = widget.jobData['posterName'] as String? ?? 'Client';
+  final posterImg  = widget.jobData['posterImage'] as String? ?? '';
+  if (buyerId.isEmpty) return;
+
+  final db = FirebaseFirestore.instance;
+  final phones = [widget.sellerUid, buyerId]..sort();
+  final convId = '${phones[0]}_${phones[1]}';
+
+  if (!(await db.collection('conversations').doc(convId).get()).exists) {
+    final buyerDoc   = await db.collection('users').doc(buyerId).get();
+    final buyerData  = buyerDoc.data() ?? {};
+    final sellerDoc  = await db.collection('users').doc(widget.sellerUid).get();
+    final sellerData = sellerDoc.data() ?? {};
+    await db.collection('conversations').doc(convId).set({
+      'participantIds': [widget.sellerUid, buyerId],
+      'participantNames': {widget.sellerUid: '${sellerData['firstName'] ?? ''} ${sellerData['lastName'] ?? ''}'.trim(), buyerId: posterName},
+      'participantRoles': {widget.sellerUid: 'seller', buyerId: 'buyer'},
+      'participantProfileImages': {widget.sellerUid: sellerData['profileImage'] ?? '', buyerId: buyerData['profileImage'] ?? ''},
+      'lastMessage': '', 'lastMessageAt': Timestamp.now(), 'createdAt': Timestamp.now(),
+      'unreadCounts': {widget.sellerUid: 0, buyerId: 0},
+      'relatedJobId': widget.jobId, 'relatedJobTitle': widget.jobData['title'] ?? '',
+    });
   }
 
+  // ✅ Navigate instead of SnackBar
+  if (context.mounted) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatDetailScreen(
+      convId:     convId,
+      myUid:      widget.sellerUid,
+      otherUid:   buyerId,
+      otherName:  posterName,
+      otherImage: posterImg,
+      otherRole:  'buyer',
+      jobTitle:   widget.jobData['title'] as String? ?? '',
+    )));
+  }
+}
   @override Widget build(BuildContext context) {
     final title          = widget.jobData['title']??'';
     final posterName     = widget.jobData['posterName']??'Client';

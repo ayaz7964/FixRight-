@@ -4619,6 +4619,7 @@ import 'notification_service.dart';
 import 'tts_translation_service.dart';
 import 'rating_feedback_widget.dart';
 import 'commission_service.dart';
+import 'ChatDetailScreen.dart';
 
 const int kFreeOrderLimit = 3;
 const double kInsuranceRate = 0.20;
@@ -5645,21 +5646,58 @@ class _BidCardState extends State<_BidCard> {
     showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (_) => _OrderConfirmationSheet(bid: widget.bid, jobId: widget.jobId, jobData: widget.jobData, buyerUid: widget.buyerUid, sellerInfo: sellerInfo));
   }
 
+  // Future<void> _openConversation(BuildContext ctx) async {
+  //   final sellerId = widget.bid['sellerId'] as String;
+  //   final sellerName = widget.bid['sellerName'] as String? ?? '';
+  //   final sellerImage = widget.bid['sellerImage'] as String? ?? '';
+  //   final db = FirebaseFirestore.instance;
+  //   final phones = [widget.buyerUid, sellerId]..sort();
+  //   final convId = '${phones[0]}_${phones[1]}';
+  //   if (!(await db.collection('conversations').doc(convId).get()).exists) {
+  //     final buyerDoc = await db.collection('users').doc(widget.buyerUid).get();
+  //     final buyerData = buyerDoc.data() ?? {};
+  //     final buyerName = '${buyerData['firstName'] as String? ?? ''} ${buyerData['lastName'] as String? ?? ''}'.trim();
+  //     await db.collection('conversations').doc(convId).set({'participantIds': [widget.buyerUid, sellerId], 'participantNames': {widget.buyerUid: buyerName, sellerId: sellerName}, 'participantRoles': {widget.buyerUid: 'buyer', sellerId: 'seller'}, 'participantProfileImages': {widget.buyerUid: buyerData['profileImage'] as String? ?? '', sellerId: sellerImage}, 'lastMessage': '', 'lastMessageAt': Timestamp.now(), 'createdAt': Timestamp.now(), 'unreadCounts': {widget.buyerUid: 0, sellerId: 0}, 'relatedJobId': widget.jobId, 'relatedJobTitle': widget.jobData['title'] as String? ?? ''});
+  //   }
+  //   if (mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Chat opened with $sellerName')));
+  // }
+
   Future<void> _openConversation(BuildContext ctx) async {
-    final sellerId = widget.bid['sellerId'] as String;
-    final sellerName = widget.bid['sellerName'] as String? ?? '';
-    final sellerImage = widget.bid['sellerImage'] as String? ?? '';
-    final db = FirebaseFirestore.instance;
-    final phones = [widget.buyerUid, sellerId]..sort();
-    final convId = '${phones[0]}_${phones[1]}';
-    if (!(await db.collection('conversations').doc(convId).get()).exists) {
-      final buyerDoc = await db.collection('users').doc(widget.buyerUid).get();
-      final buyerData = buyerDoc.data() ?? {};
-      final buyerName = '${buyerData['firstName'] as String? ?? ''} ${buyerData['lastName'] as String? ?? ''}'.trim();
-      await db.collection('conversations').doc(convId).set({'participantIds': [widget.buyerUid, sellerId], 'participantNames': {widget.buyerUid: buyerName, sellerId: sellerName}, 'participantRoles': {widget.buyerUid: 'buyer', sellerId: 'seller'}, 'participantProfileImages': {widget.buyerUid: buyerData['profileImage'] as String? ?? '', sellerId: sellerImage}, 'lastMessage': '', 'lastMessageAt': Timestamp.now(), 'createdAt': Timestamp.now(), 'unreadCounts': {widget.buyerUid: 0, sellerId: 0}, 'relatedJobId': widget.jobId, 'relatedJobTitle': widget.jobData['title'] as String? ?? ''});
-    }
-    if (mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Chat opened with $sellerName')));
+  final sellerId    = widget.bid['sellerId']    as String;
+  final sellerName  = widget.bid['sellerName']  as String? ?? '';
+  final sellerImage = widget.bid['sellerImage'] as String? ?? '';
+  final db = FirebaseFirestore.instance;
+  final phones = [widget.buyerUid, sellerId]..sort();
+  final convId = '${phones[0]}_${phones[1]}';
+
+  if (!(await db.collection('conversations').doc(convId).get()).exists) {
+    final buyerDoc  = await db.collection('users').doc(widget.buyerUid).get();
+    final buyerData = buyerDoc.data() ?? {};
+    final buyerName = '${buyerData['firstName'] as String? ?? ''} ${buyerData['lastName'] as String? ?? ''}'.trim();
+    await db.collection('conversations').doc(convId).set({
+      'participantIds': [widget.buyerUid, sellerId],
+      'participantNames': {widget.buyerUid: buyerName, sellerId: sellerName},
+      'participantRoles': {widget.buyerUid: 'buyer', sellerId: 'seller'},
+      'participantProfileImages': {widget.buyerUid: buyerData['profileImage'] as String? ?? '', sellerId: sellerImage},
+      'lastMessage': '', 'lastMessageAt': Timestamp.now(), 'createdAt': Timestamp.now(),
+      'unreadCounts': {widget.buyerUid: 0, sellerId: 0},
+      'relatedJobId': widget.jobId, 'relatedJobTitle': widget.jobData['title'] as String? ?? '',
+    });
   }
+
+  // ✅ Navigate instead of SnackBar
+  if (mounted) {
+    Navigator.push(ctx, MaterialPageRoute(builder: (_) => ChatDetailScreen(
+      convId:     convId,
+      myUid:      widget.buyerUid,
+      otherUid:   sellerId,
+      otherName:  sellerName,
+      otherImage: sellerImage,
+      otherRole:  'seller',
+      jobTitle:   widget.jobData['title'] as String? ?? '',
+    )));
+  }
+}
 
   @override
   Widget build(BuildContext context) {
