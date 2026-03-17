@@ -249,7 +249,7 @@ class HomePageState extends State<HomePage> {
   bool isLoading = true;
   String _searchQuery = '';
   int _selectedIndex = 0;
-  bool _isSeller = false;
+  final bool _isSeller = false;
 
   static const List<Map<String, dynamic>> _categories = [
     {'name': 'Plumbing', 'emoji': '🔧'},

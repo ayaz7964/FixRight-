@@ -74,8 +74,6 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
       accuracy: LocationAccuracy.high,
       distanceFilter: 8,
     ).listen((pos) async {
-      if (pos == null) return;
-
       final newLat = pos.latitude;
       final newLng = pos.longitude;
 

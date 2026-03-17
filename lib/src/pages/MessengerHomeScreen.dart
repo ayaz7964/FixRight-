@@ -27,7 +27,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
   String _locationFilter = 'all'; // all, nearest, sameCity
   String _skillFilter = 'all';
   String _autoTranslateLanguage = 'ur';
-  bool _isDarkMode = false;
+  final bool _isDarkMode = false;
 
   final _searchController = TextEditingController();
 

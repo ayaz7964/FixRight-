@@ -100,7 +100,7 @@ class ChatService {
     final idB = _normalizePhoneForDoc(otherUserId);
 
     // Helper to load a user doc with a small fallback (try without '+' if needed)
-    Future<DocumentSnapshot> _loadUserDoc(String id) async {
+    Future<DocumentSnapshot> loadUserDoc(String id) async {
       final doc = await _firestore.collection('users').doc(id).get();
       if (doc.exists) return doc;
       final altId = id.startsWith('+') ? id.replaceFirst('+', '') : '+$id';
@@ -108,8 +108,8 @@ class ChatService {
       return altDoc;
     }
 
-    final currentDoc = await _loadUserDoc(idA);
-    final otherDoc = await _loadUserDoc(idB);
+    final currentDoc = await loadUserDoc(idA);
+    final otherDoc = await loadUserDoc(idB);
 
     // Build lightweight UserModel instances; if profile not found, use defaults
     final user1 = currentDoc.exists
@@ -675,7 +675,7 @@ class ChatService {
         if (normalized.startsWith('+')) {
           variants.add(normalized.replaceFirst('+', ''));
         } else {
-          variants.add('+' + normalized);
+          variants.add('+$normalized');
         }
 
         for (final variant in variants) {

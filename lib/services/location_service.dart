@@ -161,7 +161,7 @@ class LocationService {
     double lon2,
   ) async {
     try {
-      final distanceInMeters = await Geolocator.distanceBetween(
+      final distanceInMeters = Geolocator.distanceBetween(
         lat1,
         lon1,
         lat2,

@@ -1036,7 +1036,6 @@
 
 
 import 'dart:io';
-import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1047,9 +1046,7 @@ import '../../services/user_data_helper.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_service.dart';
 import 'LocationMapScreen.dart';
-import '../../services/profileImageUploader.dart';
 import './cloudinary_service.dart';
-import '../../services/test.dart';
 import '../pages/sellerForm.dart';
 
 class ProfileScreen extends StatefulWidget {

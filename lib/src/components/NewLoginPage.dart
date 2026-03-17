@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:country_picker/country_picker.dart';
-import 'package:pinput/pinput.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
 import '../../services/user_presence_service.dart';

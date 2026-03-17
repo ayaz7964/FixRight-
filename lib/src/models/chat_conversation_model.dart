@@ -45,7 +45,7 @@ class ChatConversation {
     final data = doc.data() as Map<String, dynamic>;
 
     // Helper to safely convert arrays to maps
-    Map<String, String> _arrayToMap(dynamic value) {
+    Map<String, String> arrayToMap(dynamic value) {
       if (value is Map) {
         return Map<String, String>.from(value);
       } else if (value is List) {
@@ -55,7 +55,7 @@ class ChatConversation {
       return {};
     }
 
-    Map<String, String?> _arrayToMapNullable(dynamic value) {
+    Map<String, String?> arrayToMapNullable(dynamic value) {
       if (value is Map) {
         return Map<String, String?>.from(value);
       } else if (value is List) {
@@ -65,7 +65,7 @@ class ChatConversation {
       return {};
     }
 
-    Map<String, int> _arrayToMapInt(dynamic value) {
+    Map<String, int> arrayToMapInt(dynamic value) {
       if (value is Map) {
         return Map<String, int>.from(value);
       } else if (value is List) {
@@ -78,15 +78,15 @@ class ChatConversation {
     return ChatConversation(
       id: doc.id,
       participantIds: List<String>.from(data['participantIds'] ?? []),
-      participantNames: _arrayToMap(data['participantNames']),
-      participantProfileImages: _arrayToMapNullable(
+      participantNames: arrayToMap(data['participantNames']),
+      participantProfileImages: arrayToMapNullable(
         data['participantProfileImages'],
       ),
-      participantRoles: _arrayToMap(data['participantRoles']),
+      participantRoles: arrayToMap(data['participantRoles']),
       lastMessage: data['lastMessage'] ?? '',
       lastMessageSenderId: data['lastMessageSenderId'],
       lastMessageAt: data['lastMessageAt'] ?? Timestamp.now(),
-      unreadCounts: _arrayToMapInt(data['unreadCounts']),
+      unreadCounts: arrayToMapInt(data['unreadCounts']),
       lastReadAt: _parseLastReadAt(data['lastReadAt']),
       blockedUsers: List<String>.from(data['blockedUsers'] ?? []),
     );
@@ -97,7 +97,7 @@ class ChatConversation {
     if (value == null) return null;
     if (value is Map) {
       final result = <String, Timestamp>{};
-      for (var entry in (value as Map).entries) {
+      for (var entry in (value).entries) {
         if (entry.value is Timestamp) {
           result[entry.key.toString()] = entry.value as Timestamp;
         }

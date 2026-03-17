@@ -9,6 +9,8 @@ const String CLOUD_NAME = 'drimurck6';
 const String UNSIGNED_UPLOAD_PRESET = 'fixright_profile';
 
 class ImageUploadScreen extends StatefulWidget {
+  const ImageUploadScreen({super.key});
+
   @override
   _ImageUploadScreenState createState() => _ImageUploadScreenState();
 }

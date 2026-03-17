@@ -165,7 +165,9 @@ dependencies:
   url_launcher: ^6.2.0
   google_maps_flutter: ^2.4.0
 
-
+  flutter_tts: ^4.0.2
+ 
+  
   # 🔹 Media & Image Handling
   image_picker: ^1.2.0
   flutter_image_compress: ^2.3.0

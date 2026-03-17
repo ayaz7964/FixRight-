@@ -1,9 +1,9 @@
 // lib/src/pages/seller_main_screen.dart
 
 import 'package:flutter/material.dart';
-import 'MessageChatBotScreen.dart'; // Reuse chat screen
+// Reuse chat screen
 import 'ProfileScreen.dart'; // Reuse profile screen
-import 'JobPostingScreen.dart'; // Reuse job posting/gig creation screen (for Post Services)
+// Reuse job posting/gig creation screen (for Post Services)
 import 'SellerOrdersPage.dart'; // Orders management screen
 import 'seller_dashboard_page.dart'; // Dashboard content
 import 'MessengerHomeScreen.dart'; // Messenger home screen

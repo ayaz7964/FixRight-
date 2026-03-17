@@ -14,7 +14,7 @@ class _CallsListScreenState extends State<CallsListScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   late String _currentUserId;
-  bool _isDarkMode = false;
+  final bool _isDarkMode = false;
 
   @override
   void initState() {
