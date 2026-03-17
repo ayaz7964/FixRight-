@@ -76,7 +76,7 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
     // Re-use JobPostingScreen for creating a new Gig/Service
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const PostOfferScreen()));
+    ).push(MaterialPageRoute(builder: (context) => const PostOfferScreen()));  
   }
 
   // --- Helper for Custom Nav Item Design ---
