@@ -412,14 +412,14 @@ class HomePageState extends State<HomePage> with SingleTickerProviderStateMixin 
 
   // ── Top Workers ───────────────────────────────────────────
   Widget _buildTopWorkers() => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 26, 0, 0),
+    padding: const EdgeInsets.fromLTRB(20, 30, 0, 0),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(padding: const EdgeInsets.only(right: 16), child:
         _sectionHeader(
           _city.isNotEmpty ? 'Top Workers in $_city' : 'Top Workers',
           'View All', _toDirectory)),
       const SizedBox(height: 14),
-      SizedBox(height: 142, child: ListView.builder(
+      SizedBox(height: 146, child: ListView.builder(
         scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(right: 16),
         itemCount: _topWorkers.length,
         itemBuilder: (ctx, i) => _WorkerChip(
@@ -432,26 +432,90 @@ class HomePageState extends State<HomePage> with SingleTickerProviderStateMixin 
   );
 
   // ── Featured Offers ───────────────────────────────────────
+  // Widget _buildFeaturedOffers() => Padding(
+  //   padding: const EdgeInsets.fromLTRB(16, 26, 16, 0),
+  //   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  //     _sectionHeader('Top Offers For You', 'Browse All', () => _toAllOffers()),
+  //     const SizedBox(height: 14),
+  //     if (_offersLoading) _shimmerList()
+  //     else if (_topOffers.isEmpty)
+  //       _offersEmpty()
+  //     else ...[
+  //       ..._topOffers.map((offer) => _HomeOfferCard(
+  //         offerData: offer,
+  //         offerId: offer['_offerId'] as String? ?? '',
+  //         buyerUid: widget.phoneUID ?? UserSession().phoneUID ?? '',
+  //         buyerCity: _city,
+  //       )),
+  //       const SizedBox(height: 8),
+  //       _seeAllBtn(),
+  //     ],
+  //   ]),
+  // );
+
   Widget _buildFeaturedOffers() => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 26, 16, 0),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _sectionHeader('Top Offers For You', 'Browse All', () => _toAllOffers()),
+  padding: const EdgeInsets.fromLTRB(16, 26, 0, 0),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+
+      /// 🔥 HEADER (same style as Top Workers)
+      Padding(
+        padding: const EdgeInsets.only(right: 16),
+        child: _sectionHeader(
+          'Top Offers For You',
+          'View All',
+          () => _toAllOffers(),
+        ),
+      ),
+
       const SizedBox(height: 14),
-      if (_offersLoading) _shimmerList()
-      else if (_topOffers.isEmpty)
-        _offersEmpty()
-      else ...[
-        ..._topOffers.map((offer) => _HomeOfferCard(
-          offerData: offer,
-          offerId: offer['_offerId'] as String? ?? '',
-          buyerUid: widget.phoneUID ?? UserSession().phoneUID ?? '',
-          buyerCity: _city,
-        )),
-        const SizedBox(height: 8),
-        _seeAllBtn(),
-      ],
-    ]),
-  );
+
+      /// 🔥 CONTENT
+      SizedBox(
+        height: 240, // 👈 important for horizontal cards
+        child: _offersLoading
+            ? ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(right: 16),
+                itemCount: 3,
+                itemBuilder: (_, __) => Container(
+                  width: 260,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              )
+            : _topOffers.isEmpty
+                ? _offersEmpty()
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(right: 16),
+                    itemCount: _topOffers.length,
+                    itemBuilder: (context, i) {
+                      final offer = _topOffers[i];
+                      return SizedBox(
+                        width: 260,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _HomeOfferCard(
+                            offerData: offer,
+                            offerId: offer['_offerId'] as String? ?? '',
+                            buyerUid: widget.phoneUID ??
+                                UserSession().phoneUID ??
+                                '',
+                            buyerCity: _city,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+      ),
+    ],
+  ),
+);
 
   Widget _offersEmpty() => Container(
     width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 40),
