@@ -3,612 +3,1107 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/user_session.dart';
 import 'offer_place_order_sheet.dart';
-import 'SellerDirectoryScreen.dart';   // SellerProfileSheet lives here
+import 'SellerDirectoryScreen.dart';
 import 'tts_translation_service.dart';
 
-// ═══════════════════════════════════════════════════════════════R
-//  ALL OFFERS SCREEN  v4n
+// ══════════════════════════════════════════════════════════════
+//  ALL OFFERS SCREEN  —  v4 (layout rewrite)
 //
-//  Data model (confirmed from Firestore screenshots):
-//    sellers/{uid}/offers/{offerId}  — offer fields
-//    users/{uid}                     — profileImage, city (NOT in sellers doc)
+//  WHY previous versions kept crashing:
+//  ┌─ PreferredSize child never gets bounded width from Scaffold
+//  │  → Column(crossAxisAlignment.start) passes UNBOUNDED width
+//  │  → TextField receives infinite width → crash cascade
 //
-//  Strategy:
-//    1. Stream collectionGroup('offers').where('status','active')
-//    2. Extract unique sellerIds from offer docs
-//    3. Batch-fetch users/{sellerId} for city + profileImage
-//    4. Merge enriched data client-side
-//    5. All filter/sort done client-side → no composite index needed
-// ═══════════════════════════════════════════════════════════════
+//  FIX: Remove PreferredSize entirely.
+//  Use a real AppBar for chrome (back/sort/lang).
+//  Move search + pills into the body Column — always bounded. ✅
+//
+//  NEW LOGIC:
+//  • Hide buyer's OWN offers (sellerId == phoneUID)
+//    so a seller-buyer can't place an order on their own listing.
+// ══════════════════════════════════════════════════════════════
 class AllOffersScreen extends StatefulWidget {
   final String? phoneUID;
-  final String  buyerCity;
+  final String buyerCity;
   final String? initialCategory;
+
   const AllOffersScreen({
     super.key,
     this.phoneUID,
     this.buyerCity = '',
     this.initialCategory,
   });
+
   @override
   State<AllOffersScreen> createState() => _AllOffersScreenState();
 }
 
 class _AllOffersScreenState extends State<AllOffersScreen> {
-  static const _teal     = Color(0xFF00695C);
-  static const _bg       = Color(0xFFF3F5F8);
+  static const _teal = Color(0xFF00695C);
+  static const _tealDark = Color(0xFF004D40);
 
-  // ── Stream + enriched data ────────────────────────────────
-  StreamSubscription<QuerySnapshot>? _offerSub;
-  List<Map<String, dynamic>> _enrichedOffers = [];
-  Map<String, Map<String, dynamic>> _userCache = {};
-  bool _loadingOffers = true;
+  StreamSubscription<QuerySnapshot>? _sub;
+  List<Map<String, dynamic>> _allOffers = [];
+  final Map<String, String> _cityCache = {};
+  bool _loading = true;
 
-  // ── Filter / sort state ───────────────────────────────────
   final _searchCtrl = TextEditingController();
-  String  _query    = '';
-  String? _selCat;
-  bool    _cityOnly = false;
-  String  _sortBy   = 'rating';  // 'rating' | 'price_asc' | 'price_desc'
+  String _query = '';
+  String? _cat;
+  bool _nearMe = false;
+  String _sort = 'rating';
 
   static const _cats = [
-    {'n': 'All',        'e': '🌟'},
-    {'n': 'Plumbing',   'e': '🔧'},
-    {'n': 'Electrical', 'e': '⚡'},
-    {'n': 'Cleaning',   'e': '🧹'},
-    {'n': 'Carpentry',  'e': '🪚'},
-    {'n': 'AC Repair',  'e': '❄️'},
-    {'n': 'Painting',   'e': '🎨'},
-    {'n': 'Mechanic',   'e': '🔩'},
-    {'n': 'Roofing',    'e': '🏗️'},
-    {'n': 'Gardening',  'e': '🌿'},
-    {'n': 'Welding',    'e': '🔥'},
-    {'n': 'Masonry',    'e': '🧱'},
-    {'n': 'Tiling',     'e': '🪟'},
+    'All',
+    'Plumbing',
+    'Electrical',
+    'Cleaning',
+    'Carpentry',
+    'AC Repair',
+    'Painting',
+    'Mechanic',
+    'Roofing',
+    'Gardening',
+    'Welding',
+    'Masonry',
+    'Tiling',
   ];
+  static const _catEmoji = {
+    'All': '🌟',
+    'Plumbing': '🔧',
+    'Electrical': '⚡',
+    'Cleaning': '🧹',
+    'Carpentry': '🪚',
+    'AC Repair': '❄️',
+    'Painting': '🎨',
+    'Mechanic': '🔩',
+    'Roofing': '🏗️',
+    'Gardening': '🌿',
+    'Welding': '🔥',
+    'Masonry': '🧱',
+    'Tiling': '🪟',
+  };
 
+  // ── Lifecycle ─────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _selCat   = widget.initialCategory;
-    _cityOnly = widget.buyerCity.isNotEmpty;
-    _searchCtrl.addListener(() =>
-        setState(() => _query = _searchCtrl.text.trim().toLowerCase()));
-    _listenToOffers();
+    _cat = widget.initialCategory;
+    _nearMe = widget.buyerCity.isNotEmpty;
+    _searchCtrl.addListener(
+      () => setState(() => _query = _searchCtrl.text.trim().toLowerCase()),
+    );
+    _subscribe();
   }
 
   @override
   void dispose() {
-    _offerSub?.cancel();
+    _sub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  // ── Subscribe to offers + enrich with user data ───────────
-  void _listenToOffers() {
-    _offerSub = FirebaseFirestore.instance
+  // ── Firestore ─────────────────────────────────────────────────
+  void _subscribe() {
+    _sub = FirebaseFirestore.instance
         .collectionGroup('offers')
-        .where('status', isEqualTo: 'active')
         .snapshots()
-        .listen((snap) async {
-      final rawOffers = snap.docs
-          .map((d) => {...d.data() as Map<String, dynamic>, '_offerId': d.id})
-          .toList();
-
-      // Collect unique seller UIDs
-      final sellerIds = rawOffers
-          .map((o) => (o['sellerId'] as String? ?? '').trim())
-          .where((id) => id.isNotEmpty)
-          .toSet();
-
-      // Fetch users we don't have yet
-      final missing = sellerIds.where((id) => !_userCache.containsKey(id)).toList();
-      if (missing.isNotEmpty) {
-        await _batchFetchUsers(missing);
-      }
-
-      // Merge offer + user data
-      final enriched = rawOffers.map((offer) {
-        final sid   = (offer['sellerId'] as String? ?? '').trim();
-        final user  = _userCache[sid] ?? {};
-        // Build seller name: prefer offer's stored name, fall back to user doc
-        final storedName   = (offer['sellerName'] as String? ?? '').trim();
-        final userFirst    = (user['firstName']    as String? ?? '').trim();
-        final userLast     = (user['lastName']     as String? ?? '').trim();
-        final sellerName   = storedName.isNotEmpty
-            ? storedName
-            : '$userFirst $userLast'.trim();
-        // profileImage comes from users collection
-        final sellerImage  = (user['profileImage'] as String? ?? '').trim();
-        // city comes from users collection (lowercase comparison later)
-        final sellerCity   = (user['city'] as String? ?? '').trim();
-        return {
-          ...offer,
-          'sellerName':  sellerName,
-          'sellerImage': sellerImage,
-          'sellerCity':  sellerCity,
-        };
-      }).toList();
-
-      if (mounted) setState(() { _enrichedOffers = enriched; _loadingOffers = false; });
-    }, onError: (_) {
-      if (mounted) setState(() => _loadingOffers = false);
-    });
+        .listen(
+          _onData,
+          onError: (_) {
+            if (mounted) setState(() => _loading = false);
+          },
+        );
   }
 
-  Future<void> _batchFetchUsers(List<String> uids) async {
-    // Firestore whereIn supports up to 30 items; chunk if needed
-    const chunk = 30;
-    for (int i = 0; i < uids.length; i += chunk) {
-      final batch = uids.skip(i).take(chunk).toList();
-      try {
-        final snap = await FirebaseFirestore.instance
-            .collection('users')
-            .where(FieldPath.documentId, whereIn: batch)
-            .get();
-        for (final doc in snap.docs) {
-          _userCache[doc.id] = doc.data() as Map<String, dynamic>;
+  Future<void> _onData(QuerySnapshot snap) async {
+    final buyerUid = (widget.phoneUID ?? UserSession().phoneUID ?? '').trim();
+
+    final docs = snap.docs.map((d) {
+      final data = d.data() as Map<String, dynamic>;
+      final sid = (data['sellerId'] as String?)?.trim().isNotEmpty == true
+          ? (data['sellerId'] as String).trim()
+          : (d.reference.parent.parent?.id ?? '');
+      return <String, dynamic>{...data, '_docId': d.id, 'sellerId': sid};
+    }).toList();
+
+    // ── Filter: hide buyer's OWN offers ─────────────────────────────
+    //    Only exclude offers where seller == buyer (self-listings)
+    final active = docs.where((o) {
+      final sid = (o['sellerId'] as String? ?? '').trim();
+      final isOwnOffer = buyerUid.isNotEmpty && sid == buyerUid;
+      return sid.isNotEmpty && !isOwnOffer;
+    }).toList();
+
+    // ── Fetch cities from users collection ────────────────────────
+    final missing = active
+        .map((o) => (o['sellerId'] as String? ?? '').trim())
+        .where((id) => id.isNotEmpty && !_cityCache.containsKey(id))
+        .toSet()
+        .toList();
+
+    if (missing.isNotEmpty) {
+      for (var i = 0; i < missing.length; i += 30) {
+        final chunk = missing.skip(i).take(30).toList();
+        try {
+          final us = await FirebaseFirestore.instance
+              .collection('users')
+              .where(FieldPath.documentId, whereIn: chunk)
+              .get();
+          for (final d in us.docs) {
+            final ud = d.data();
+            _cityCache[d.id] = ud.containsKey('city')
+                ? (ud['city'] as String? ?? '').trim()
+                : '';
+          }
+          for (final uid in chunk) _cityCache.putIfAbsent(uid, () => '');
+        } catch (_) {
+          for (final uid in chunk) _cityCache.putIfAbsent(uid, () => '');
         }
-      } catch (_) {}
+      }
     }
+
+    final enriched = active.map((o) {
+      final sid = (o['sellerId'] as String? ?? '').trim();
+      return <String, dynamic>{...o, 'sellerCity': _cityCache[sid] ?? ''};
+    }).toList();
+
+    if (mounted)
+      setState(() {
+        _allOffers = enriched;
+        _loading = false;
+      });
   }
 
-  // ── Filter + sort ─────────────────────────────────────────
-  List<Map<String, dynamic>> get _filtered {
-    var list = List<Map<String, dynamic>>.from(_enrichedOffers);
+  // ── Filter + sort ─────────────────────────────────────────────
+  List<Map<String, dynamic>> get _visible {
+    var list = List<Map<String, dynamic>>.from(_allOffers);
 
-    // City filter — case-insensitive
-    if (_cityOnly && widget.buyerCity.isNotEmpty) {
-      final bC = widget.buyerCity.trim().toLowerCase();
-      list = list.where((o) =>
-        (o['sellerCity'] as String? ?? '').toLowerCase() == bC).toList();
+    if (_nearMe && widget.buyerCity.isNotEmpty) {
+      final bc = widget.buyerCity.trim().toLowerCase();
+      list = list
+          .where((o) => (o['sellerCity'] as String? ?? '').toLowerCase() == bc)
+          .toList();
     }
 
-    // Category filter
-    if (_selCat != null) {
-      final cat = _selCat!.toLowerCase();
+    if (_cat != null && _cat != 'All') {
+      final c = _cat!.toLowerCase();
       list = list.where((o) {
-        final title  = (o['title']  as String? ?? '').toLowerCase();
-        final skills = List<String>.from(o['skills'] ?? []).join(' ').toLowerCase();
-        return title.contains(cat) || skills.contains(cat);
+        final t = (o['title'] as String? ?? '').toLowerCase();
+        final skills = (o['skills'] is List)
+            ? List<String>.from(o['skills'] as List)
+            : <String>[];
+        return t.contains(c) || skills.join(' ').toLowerCase().contains(c);
       }).toList();
     }
 
-    // Search
     if (_query.isNotEmpty) {
       list = list.where((o) {
-        final hay = [
-          o['title']       ?? '',
+        final skills = (o['skills'] is List)
+            ? List<String>.from(o['skills'] as List)
+            : <String>[];
+        final h = [
+          o['title'] ?? '',
           o['description'] ?? '',
-          o['sellerName']  ?? '',
-          o['sellerCity']  ?? '',
-          ...List<String>.from(o['skills'] ?? []),
+          o['sellerName'] ?? '',
+          o['sellerCity'] ?? '',
+          ...skills,
         ].join(' ').toLowerCase();
-        return hay.contains(_query);
+        return h.contains(_query);
       }).toList();
     }
 
-    // Sort
     list.sort((a, b) {
-      switch (_sortBy) {
-        case 'price_asc':
-          return ((a['price'] ?? 0) as num).compareTo((b['price'] ?? 0) as num);
-        case 'price_desc':
-          return ((b['price'] ?? 0) as num).compareTo((a['price'] ?? 0) as num);
-        default: // rating
-          final ar = (a['rating'] ?? 0.0).toDouble();
-          final br = (b['rating'] ?? 0.0).toDouble();
-          return br.compareTo(ar);
-      }
+      if (_sort == 'price_asc')
+        return ((a['price'] ?? 0) as num).compareTo((b['price'] ?? 0) as num);
+      if (_sort == 'price_desc')
+        return ((b['price'] ?? 0) as num).compareTo((a['price'] ?? 0) as num);
+      return ((b['rating'] ?? 0.0) as num).compareTo(
+        (a['rating'] ?? 0.0) as num,
+      );
     });
 
-    // Float buyer's city to top
-    if (widget.buyerCity.isNotEmpty && !_cityOnly) {
-      final bC = widget.buyerCity.trim().toLowerCase();
+    if (!_nearMe && widget.buyerCity.isNotEmpty) {
+      final bc = widget.buyerCity.trim().toLowerCase();
       list.sort((a, b) {
-        final aLocal = (a['sellerCity'] as String? ?? '').toLowerCase() == bC ? 0 : 1;
-        final bLocal = (b['sellerCity'] as String? ?? '').toLowerCase() == bC ? 0 : 1;
-        return aLocal.compareTo(bLocal);
+        final aL = (a['sellerCity'] as String? ?? '').toLowerCase() == bc
+            ? 0
+            : 1;
+        final bL = (b['sellerCity'] as String? ?? '').toLowerCase() == bc
+            ? 0
+            : 1;
+        return aL.compareTo(bL);
       });
     }
 
     return list;
   }
 
-  // ══════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════
   //  BUILD
-  // ══════════════════════════════════════════════════════════
+  //
+  //  Layout tree:
+  //  Scaffold
+  //  ├─ AppBar  (standard — back / sort / lang)            ← bounded ✅
+  //  └─ body: Column
+  //       ├─ _SearchHeader  (gradient container)           ← bounded ✅
+  //       ├─ _buildCats     (52 px horizontal list)
+  //       ├─ _buildResultsBar
+  //       └─ Expanded → ListView / empty / loading
+  // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
+    final shown = _visible;
+
     return Scaffold(
-      backgroundColor: _bg,
-      body: Column(children: [
-        // ── Fixed header (no overlap) ──────────────────────
-        _buildHeader(context),
-        // ── Category chips ─────────────────────────────────
-        _buildCategoryChips(),
-        // ── Filter / results bar ───────────────────────────
-        _buildResultsBar(),
-        // ── Offers list ────────────────────────────────────
-        Expanded(child: _buildBody()),
-      ]),
+      backgroundColor: const Color(0xFFF3F5F8),
+
+      // ── Standard AppBar — no PreferredSize tricks ──────────────
+      appBar: AppBar(
+        backgroundColor: _tealDark,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Service Offers',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.3,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sort_rounded, color: Colors.white, size: 22),
+            onPressed: _showSort,
+          ),
+          const GlobalLanguageButton(color: Colors.white),
+          const SizedBox(width: 4),
+        ],
+      ),
+
+      // ── Body ──────────────────────────────────────────────────
+      body: Column(
+        children: [
+          // Search header — in body = always gets screen width ✅
+          _buildSearchHeader(),
+          // Categories
+          _buildCats(),
+          // Results bar
+          _buildResultsBar(shown.length),
+          // Offer list
+          Expanded(child: _buildList(shown)),
+        ],
+      ),
     );
   }
 
-  // ── Header ────────────────────────────────────────────────
-  Widget _buildHeader(BuildContext ctx) {
+  // ── Search header (gradient, subtitle, search bar, pills) ─────
+  //  This widget is now in the BODY, so it always has
+  //  a bounded width equal to the screen width — no crashes.
+  Widget _buildSearchHeader() {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [Color(0xFF00695C), Color(0xFF004D40)]),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Color(0x44004D40), blurRadius: 18, offset: Offset(0, 6))],
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_teal, _tealDark],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: SafeArea(bottom: false, child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Top row
-          Row(children: [
-            _iconBtn(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(ctx)),
-            const Spacer(),
-            _iconBtn(Icons.sort_rounded, _showSortSheet),
-            const SizedBox(width: 8),
-            const GlobalLanguageButton(color: Colors.white),
-          ]),
-          const SizedBox(height: 10),
-          const Text('Service Offers',
-            style: TextStyle(color: Colors.white, fontSize: 24,
-                fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-          const SizedBox(height: 4),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Subtitle
           Text(
             widget.buyerCity.isNotEmpty
-                ? '${_enrichedOffers.length} offers available near ${widget.buyerCity}'
-                : '${_enrichedOffers.length} offers available',
-            style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 13)),
-          const SizedBox(height: 14),
-          // Search bar
+                ? '${_allOffers.length} offers • ${widget.buyerCity}'
+                : '${_allOffers.length} offers available',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.80),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // ── Search bar ────────────────────────────────────────
+          // Container has width: double.infinity + it is in a Column
+          // that is a direct child of the body Column which is bounded
+          // → TextField always gets a finite width. No crash.
           Container(
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4))]),
+            height: 46,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: TextField(
               controller: _searchCtrl,
               style: const TextStyle(fontSize: 14, color: Colors.black87),
               decoration: InputDecoration(
-                hintText: 'Search offers, skills, workers…',
+                hintText: 'Search offers, skills…',
                 hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                prefixIcon: const Icon(Icons.search_rounded, color: _teal, size: 22),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: _teal,
+                  size: 20,
+                ),
                 suffixIcon: _query.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
-                        onPressed: _searchCtrl.clear)
+                    ? IconButton(
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 17,
+                          color: Colors.grey,
+                        ),
+                        onPressed: _searchCtrl.clear,
+                      )
                     : null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 13,
+                ),
               ),
             ),
           ),
-          // City filter pills
+
+          // Near-me pills
           if (widget.buyerCity.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Row(children: [
-              _filterPill('All', !_cityOnly, () => setState(() => _cityOnly = false)),
-              const SizedBox(width: 8),
-              _filterPill('📍 ${widget.buyerCity}', _cityOnly, () => setState(() => _cityOnly = true)),
-            ]),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _pill('All', !_nearMe, () => setState(() => _nearMe = false)),
+                const SizedBox(width: 8),
+                _pill(
+                  '📍 ${widget.buyerCity}',
+                  _nearMe,
+                  () => setState(() => _nearMe = true),
+                ),
+              ],
+            ),
           ],
-        ]),
-      )),
+        ],
+      ),
     );
   }
 
-  Widget _iconBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+  Widget _pill(String l, bool active, VoidCallback onTap) => GestureDetector(
     onTap: onTap,
     child: Container(
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
-      child: Icon(icon, color: Colors.white, size: 20)),
-  );
-
-  Widget _filterPill(String label, bool active, VoidCallback onTap) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         color: active ? Colors.white : Colors.white.withOpacity(0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: active ? Colors.white : Colors.white.withOpacity(0.3))),
-      child: Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700,
-        color: active ? _teal : Colors.white)),
+        border: Border.all(
+          color: active ? Colors.white : Colors.white.withOpacity(0.3),
+        ),
+      ),
+      child: Text(
+        l,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          color: active ? _teal : Colors.white,
+        ),
+      ),
     ),
   );
 
-  // ── Category chips ─────────────────────────────────────────
-  Widget _buildCategoryChips() => Container(
+  // ── Category chips ────────────────────────────────────────────
+  Widget _buildCats() => Container(
     color: Colors.white,
-    padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
-    child: SizedBox(height: 36, child: ListView.builder(
+    height: 52,
+    child: ListView.builder(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: _cats.length,
       itemBuilder: (_, i) {
-        final cat      = _cats[i];
-        final label    = cat['n'] as String;
-        final emoji    = cat['e'] as String;
-        final isAll    = label == 'All';
-        final selected = isAll ? _selCat == null : _selCat == label;
+        final label = _cats[i];
+        final emoji = _catEmoji[label] ?? '';
+        final isAll = label == 'All';
+        final active = isAll ? (_cat == null || _cat == 'All') : _cat == label;
         return GestureDetector(
-          onTap: () => setState(() => _selCat = isAll ? null : label),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+          onTap: () => setState(() => _cat = isAll ? null : label),
+          child: Container(
             margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: selected ? _teal : Colors.grey.shade100,
+              color: active ? _teal : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: selected ? _teal : Colors.grey.shade200)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(emoji, style: const TextStyle(fontSize: 13)),
-              const SizedBox(width: 5),
-              Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : Colors.grey[700])),
-            ]),
+              border: Border.all(color: active ? _teal : Colors.grey.shade200),
+            ),
+            child: Text(
+              '$emoji  $label',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: active ? Colors.white : Colors.grey[700],
+              ),
+            ),
           ),
         );
       },
-    )),
+    ),
   );
 
-  // ── Results bar ────────────────────────────────────────────
-  Widget _buildResultsBar() {
-    final count = _filtered.length;
-    const labels = {'rating': 'Top Rated', 'price_asc': 'Price ↑', 'price_desc': 'Price ↓'};
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Row(children: [
-        Text('$count ${count == 1 ? 'offer' : 'offers'}',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey[700])),
+  // ── Results bar ───────────────────────────────────────────────
+  Widget _buildResultsBar(int count) => Container(
+    color: Colors.white,
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+    child: Row(
+      children: [
+        Text(
+          '$count ${count == 1 ? 'offer' : 'offers'}',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey[700],
+          ),
+        ),
         const Spacer(),
         GestureDetector(
-          onTap: _showSortSheet,
+          onTap: _showSort,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: _teal.withOpacity(0.08), borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _teal.withOpacity(0.2))),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.swap_vert_rounded, size: 14, color: _teal),
-              const SizedBox(width: 4),
-              Text(labels[_sortBy] ?? 'Sort',
-                style: const TextStyle(fontSize: 12, color: _teal, fontWeight: FontWeight.w700)),
-            ])),
+            decoration: BoxDecoration(
+              color: _teal.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _teal.withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.swap_vert_rounded, size: 14, color: _teal),
+                const SizedBox(width: 4),
+                Text(
+                  _sort == 'price_asc'
+                      ? 'Price ↑'
+                      : _sort == 'price_desc'
+                      ? 'Price ↓'
+                      : 'Top Rated',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _teal,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ]),
-    );
-  }
+      ],
+    ),
+  );
 
-  // ── Body ───────────────────────────────────────────────────
-  Widget _buildBody() {
-    if (_loadingOffers) return _shimmer();
-    final offers = _filtered;
-    if (offers.isEmpty) return _emptyState();
+  // ── Offer list ────────────────────────────────────────────────
+  Widget _buildList(List<Map<String, dynamic>> offers) {
+    if (_loading) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(14),
+        itemCount: 4,
+        itemBuilder: (_, __) => Container(
+          height: 200,
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      );
+    }
+
+    if (offers.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: _teal.withOpacity(0.07),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  size: 36,
+                  color: _teal,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _query.isNotEmpty
+                    ? 'No results for "$_query"'
+                    : _nearMe
+                    ? 'No offers near ${widget.buyerCity}'
+                    : _cat != null
+                    ? 'No "$_cat" offers yet'
+                    : 'No active offers yet',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Try a different filter or check back soon.',
+                style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 32),
       itemCount: offers.length,
       itemBuilder: (_, i) => _OfferCard(
+        key: ValueKey(offers[i]['_docId'] ?? i),
         offerData: offers[i],
-        offerId: offers[i]['_offerId'] as String? ?? '',
+        offerId: offers[i]['_docId'] as String? ?? '',
         buyerUid: widget.phoneUID ?? UserSession().phoneUID ?? '',
         buyerCity: widget.buyerCity,
       ),
     );
   }
 
-  Widget _shimmer() => ListView.builder(
-    padding: const EdgeInsets.all(14), itemCount: 4,
-    itemBuilder: (_, i) => Container(height: 220, margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(20))));
+  // ── Sort sheet ────────────────────────────────────────────────
+  void _showSort() => showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Text(
+            'Sort Offers',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          _sortTile('⭐  Top Rated', 'rating'),
+          _sortTile('💰  Lowest Price', 'price_asc'),
+          _sortTile('💎  Highest Price', 'price_desc'),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
 
-  Widget _emptyState() => Center(child: Padding(
-    padding: const EdgeInsets.all(40),
-    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Container(width: 80, height: 80,
-        decoration: BoxDecoration(color: _teal.withOpacity(0.07), shape: BoxShape.circle),
-        child: const Icon(Icons.storefront_outlined, size: 40, color: _teal)),
-      const SizedBox(height: 20),
-      Text(_query.isNotEmpty ? 'No results for "$_query"'
-          : _cityOnly ? 'No offers near ${widget.buyerCity}'
-          : _selCat != null ? 'No "$_selCat" offers yet'
-          : 'No offers yet',
-        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.black87)),
-      const SizedBox(height: 8),
-      Text('Try a different filter or check back soon.',
-        style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-    ]),
-  ));
-
-  void _showSortSheet() => showModalBottomSheet(
-    context: context, backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-    builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-      const Text('Sort Offers', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 8),
-      _sortTile('⭐  Top Rated',     'rating'),
-      _sortTile('💰  Lowest Price',  'price_asc'),
-      _sortTile('💎  Highest Price', 'price_desc'),
-      const SizedBox(height: 12),
-    ])));
-
-  Widget _sortTile(String label, String val) => ListTile(
-    title: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-    trailing: _sortBy == val ? const Icon(Icons.check_rounded, color: _teal) : null,
-    onTap: () { setState(() => _sortBy = val); Navigator.pop(context); },
+  Widget _sortTile(String l, String v) => ListTile(
+    title: Text(
+      l,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+    ),
+    trailing: _sort == v ? const Icon(Icons.check_rounded, color: _teal) : null,
+    onTap: () {
+      setState(() => _sort = v);
+      Navigator.pop(context);
+    },
   );
 }
 
 // ══════════════════════════════════════════════════════════════
 //  OFFER CARD
 // ══════════════════════════════════════════════════════════════
+// class _OfferCard extends StatelessWidget {
+//   final Map<String, dynamic> offerData;
+//   final String offerId, buyerUid, buyerCity;
+//   static const _teal = Color(0xFF00695C);
+
+//   const _OfferCard({
+//     super.key,
+//     required this.offerData,
+//     required this.offerId,
+//     required this.buyerUid,
+//     required this.buyerCity,
+//   });
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final title      = (offerData['title']        as String? ?? 'Service Offer').trim();
+//     final desc       = (offerData['description']  as String? ?? '').trim();
+//     final price      = (offerData['price']        as num?    ?? 0).toDouble();
+//     final delivery   = (offerData['deliveryTime'] as String? ?? '').trim();
+//     final skills     = (offerData['skills'] is List)
+//         ? List<String>.from(offerData['skills'] as List) : <String>[];
+//     final sellerName = (offerData['sellerName']   as String? ?? '').trim();
+//     final sellerImg  = (offerData['sellerImage']  as String? ?? '').trim();
+//     final sellerId   = (offerData['sellerId']     as String? ?? '').trim();
+//     final sellerCity = (offerData['sellerCity']   as String? ?? '').trim();
+//     final rating     = (offerData['rating']       as num?    ?? 0.0).toDouble();
+//     final orders     = (offerData['ordersCount']  as int?    ?? 0);
+//     final imageUrl   = (offerData['imageUrl']     as String? ?? '').trim();
+//     final nearBuyer  = buyerCity.isNotEmpty &&
+//         sellerCity.toLowerCase() == buyerCity.trim().toLowerCase();
+
+//     final displayName = sellerName.isNotEmpty ? sellerName : 'Worker';
+
+//     return Container(
+//       margin: const EdgeInsets.only(bottom: 14),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(20),
+//         border: nearBuyer
+//             ? Border.all(color: _teal.withOpacity(0.3), width: 1.5)
+//             : null,
+//         boxShadow: [BoxShadow(
+//           color: Colors.black.withOpacity(0.06),
+//           blurRadius: 14, offset: const Offset(0, 4))]),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+
+//           // Cover image
+//           if (imageUrl.isNotEmpty)
+//             ClipRRect(
+//               borderRadius:
+//                   const BorderRadius.vertical(top: Radius.circular(20)),
+//               child: Image.network(
+//                 imageUrl,
+//                 height: 150,
+//                 width: double.infinity,
+//                 fit: BoxFit.cover,
+//                 errorBuilder: (_, __, ___) => const SizedBox(),
+//                 loadingBuilder: (_, child, p) => p == null ? child
+//                     : Container(height: 150, color: Colors.grey[100],
+//                         child: const Center(child: CircularProgressIndicator(
+//                             color: _teal, strokeWidth: 2))),
+//               ),
+//             ),
+
+//           Padding(
+//             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+
+//                 // ── Seller row ──────────────────────────────────
+//                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+//                   GestureDetector(
+//                     onTap: () => _showProfile(context, sellerId),
+//                     child: CircleAvatar(
+//                       radius: 21,
+//                       backgroundColor: _teal.withOpacity(0.1),
+//                       backgroundImage: sellerImg.isNotEmpty
+//                           ? NetworkImage(sellerImg) : null,
+//                       child: sellerImg.isEmpty
+//                           ? Text(displayName[0].toUpperCase(),
+//                               style: const TextStyle(
+//                                 color: _teal,
+//                                 fontWeight: FontWeight.bold,
+//                                 fontSize: 17))
+//                           : null),
+//                   ),
+//                   const SizedBox(width: 10),
+//                   Expanded(child: Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: [
+//                       Text(displayName,
+//                         maxLines: 1,
+//                         overflow: TextOverflow.ellipsis,
+//                         style: const TextStyle(
+//                           fontSize: 13, fontWeight: FontWeight.w700,
+//                           color: Colors.black87)),
+//                       Row(children: [
+//                         Icon(Icons.star_rounded,
+//                             size: 12, color: Colors.amber[600]),
+//                         const SizedBox(width: 2),
+//                         Text(rating.toStringAsFixed(1),
+//                           style: TextStyle(
+//                             fontSize: 11.5, color: Colors.grey[600],
+//                             fontWeight: FontWeight.w600)),
+//                         if (orders > 0)
+//                           Text('  · $orders orders',
+//                             style: TextStyle(
+//                                 fontSize: 11, color: Colors.grey[400])),
+//                         if (sellerCity.isNotEmpty) ...[
+//                           const SizedBox(width: 6),
+//                           Flexible(child: Text(sellerCity,
+//                             style: TextStyle(
+//                                 fontSize: 11, color: Colors.grey[400]),
+//                             maxLines: 1,
+//                             overflow: TextOverflow.ellipsis)),
+//                         ],
+//                       ]),
+//                     ])),
+//                   // Price
+//                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+//                     Text('PKR ${price.toStringAsFixed(0)}',
+//                       style: const TextStyle(
+//                         fontSize: 18, fontWeight: FontWeight.w900,
+//                         color: _teal)),
+//                     Text('starting',
+//                       style: TextStyle(
+//                           fontSize: 10, color: Colors.grey[400])),
+//                   ]),
+//                 ]),
+
+//                 const Divider(height: 16, color: Color(0xFFEEEEEE)),
+
+//                 // Title
+//                 Text(title,
+//                   maxLines: 2, overflow: TextOverflow.ellipsis,
+//                   style: const TextStyle(
+//                     fontSize: 15, fontWeight: FontWeight.w800,
+//                     color: Colors.black87)),
+
+//                 // Description
+//                 if (desc.isNotEmpty) ...[
+//                   const SizedBox(height: 4),
+//                   Text(desc,
+//                     style: TextStyle(
+//                       fontSize: 12.5, color: Colors.grey[600], height: 1.4),
+//                     maxLines: 2, overflow: TextOverflow.ellipsis),
+//                 ],
+//                 const SizedBox(height: 8),
+
+//                 // Skills
+//                 if (skills.isNotEmpty)
+//                   Wrap(spacing: 6, runSpacing: 4,
+//                     children: skills.take(4).map((s) => Container(
+//                       padding: const EdgeInsets.symmetric(
+//                           horizontal: 9, vertical: 3),
+//                       decoration: BoxDecoration(
+//                         color: _teal.withOpacity(0.07),
+//                         borderRadius: BorderRadius.circular(16),
+//                         border: Border.all(color: _teal.withOpacity(0.15))),
+//                       child: Text(s,
+//                         style: const TextStyle(
+//                           fontSize: 11.5, color: _teal,
+//                           fontWeight: FontWeight.w600)),
+//                     )).toList()),
+//                 const SizedBox(height: 10),
+
+//                 // Footer
+//                 Row(
+//                   mainAxisSize: MainAxisSize.max,
+//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                   children: [
+//                       // Left section: delivery time + near badge
+//                       Expanded(
+//                         child: Row(
+//                           mainAxisSize: MainAxisSize.min,
+//                           children: [
+//                             if (delivery.isNotEmpty) ...[
+//                               Icon(Icons.schedule_outlined,
+//                                   size: 13, color: Colors.grey[400]),
+//                               const SizedBox(width: 4),
+//                               Flexible(
+//                                 child: Text(delivery,
+//                                   maxLines: 1,
+//                                   overflow: TextOverflow.ellipsis,
+//                                   style: TextStyle(
+//                                       fontSize: 12, color: Colors.grey[500])),
+//                               ),
+//                               const SizedBox(width: 6),
+//                             ],
+//                             if (nearBuyer)
+//                               Container(
+//                                 padding: const EdgeInsets.symmetric(
+//                                     horizontal: 7, vertical: 2),
+//                                 decoration: BoxDecoration(
+//                                   color: _teal.withOpacity(0.08),
+//                                   borderRadius: BorderRadius.circular(10)),
+//                                 child: const Text('📍 Near You',
+//                                   style: TextStyle(
+//                                     fontSize: 10, color: _teal,
+//                                     fontWeight: FontWeight.w700))),
+//                           ],
+//                         ),
+//                       ),
+//                       // Right section: speak button + order button
+//                       Row(
+//                         mainAxisSize: MainAxisSize.min,
+//                         children: [
+//                           SpeakButton(
+//                             text: '$title. $desc.',
+//                             contentId: 'offer_$offerId'),
+//                           const SizedBox(width: 6),
+//                           SizedBox(
+//                             height: 40,
+//                             child: ElevatedButton(
+//                               onPressed: () => showModalBottomSheet(
+//                                 context: context,
+//                                 isScrollControlled: true,
+//                                 useSafeArea: true,
+//                                 backgroundColor: Colors.transparent,
+//                                 builder: (_) => OfferPlaceOrderSheet(
+//                                   offerData: offerData,
+//                                   offerId  : offerId,
+//                                   buyerUid : buyerUid,
+//                                   buyerCity: buyerCity)),
+//                               style: ElevatedButton.styleFrom(
+//                                 backgroundColor: _teal,
+//                                 foregroundColor: Colors.white,
+//                                 padding: const EdgeInsets.symmetric(
+//                                     horizontal: 14, vertical: 0),
+//                                 shape: RoundedRectangleBorder(
+//                                     borderRadius: BorderRadius.circular(12)),
+//                                 elevation: 0,
+//                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+//                               child: const Text('Place Order',
+//                                 maxLines: 1,
+//                                 overflow: TextOverflow.ellipsis,
+//                                 style: TextStyle(
+//                                   fontSize: 11, fontWeight: FontWeight.w700)),
+//                             ),
+//                           ),
+//                         ],
+//                       ),
+//                     ],
+//                   ),
+//               ],
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   void _showProfile(BuildContext ctx, String sid) {
+//     if (sid.isEmpty) return;
+//     showModalBottomSheet(
+//       context: ctx, isScrollControlled: true,
+//       backgroundColor: Colors.transparent,
+//       builder: (_) => SellerProfileSheet(
+//         sellerId : sid,
+//         buyerUid : buyerUid,
+//         buyerCity: buyerCity));
+//   }
+// }
+
 class _OfferCard extends StatelessWidget {
   final Map<String, dynamic> offerData;
   final String offerId, buyerUid, buyerCity;
   static const _teal = Color(0xFF00695C);
 
-  const _OfferCard({required this.offerData, required this.offerId,
-      required this.buyerUid, required this.buyerCity});
+  const _OfferCard({
+    super.key,
+    required this.offerData,
+    required this.offerId,
+    required this.buyerUid,
+    required this.buyerCity,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final title      = offerData['title']        as String? ?? 'Service Offer';
-    final desc       = offerData['description']  as String? ?? '';
-    final price      = (offerData['price']       ?? 0).toDouble();
-    final delivery   = offerData['deliveryTime'] as String? ?? '';
-    final skills     = List<String>.from(offerData['skills'] ?? []);
-    final sellerName = offerData['sellerName']   as String? ?? 'Worker';
-    final sellerImg  = offerData['sellerImage']  as String? ?? '';  // from users
-    final sellerId   = offerData['sellerId']     as String? ?? '';
-    final sellerCity = offerData['sellerCity']   as String? ?? '';  // from users
-    final rating     = (offerData['rating']      ?? 0.0).toDouble();
-    final orders     = (offerData['ordersCount'] ?? 0) as int;
-    final imageUrl   = offerData['imageUrl']     as String? ?? '';
-    final nearBuyer  = buyerCity.isNotEmpty &&
-        sellerCity.trim().toLowerCase() == buyerCity.trim().toLowerCase();
+    final title = (offerData['title'] as String? ?? 'Service Offer').trim();
+    final desc = (offerData['description'] as String? ?? '').trim();
+    final price = (offerData['price'] as num? ?? 0).toDouble();
+    final delivery = (offerData['deliveryTime'] as String? ?? '').trim();
+    final skills = (offerData['skills'] is List)
+        ? List<String>.from(offerData['skills'] as List)
+        : <String>[];
+    final sellerName = (offerData['sellerName'] as String? ?? '').trim();
+    final sellerImg = (offerData['sellerImage'] as String? ?? '').trim();
+    final sellerId = (offerData['sellerId'] as String? ?? '').trim();
+    final sellerCity = (offerData['sellerCity'] as String? ?? '').trim();
+    final rating = (offerData['rating'] as num? ?? 0.0).toDouble();
+    final orders = (offerData['ordersCount'] as int? ?? 0);
+    final imageUrl = (offerData['imageUrl'] as String? ?? '').trim();
+
+    final nearBuyer =
+        buyerCity.isNotEmpty &&
+        sellerCity.toLowerCase() == buyerCity.trim().toLowerCase();
+
+    final displayName = sellerName.isNotEmpty ? sellerName : 'Worker';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(22),
-        border: nearBuyer ? Border.all(color: _teal.withOpacity(0.3), width: 1.5) : null,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07),
-            blurRadius: 16, offset: const Offset(0, 5))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-        // ── Cover image ───────────────────────────────────
-        if (imageUrl.isNotEmpty)
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-            child: Stack(children: [
-              Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox(),
-                loadingBuilder: (_, child, prog) => prog == null ? child
-                  : Container(height: 160, color: Colors.grey[100],
-                      child: const Center(child: CircularProgressIndicator(color: _teal, strokeWidth: 2)))),
-              if (nearBuyer) Positioned(top: 12, right: 12, child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: _teal, borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 6)]),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.location_on, size: 11, color: Colors.white),
-                  SizedBox(width: 4),
-                  Text('Near You', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                ]))),
-            ]),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: nearBuyer
+            ? Border.all(color: _teal.withOpacity(0.3), width: 1.5)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
-
-        Padding(padding: const EdgeInsets.fromLTRB(16, 14, 16, 14), child:
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-            // ── Seller row ───────────────────────────────
-            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-              // Tap avatar → seller profile sheet
-              GestureDetector(
-                onTap: () => _showProfile(context, sellerId),
-                child: CircleAvatar(radius: 22, backgroundColor: _teal.withOpacity(0.1),
-                  backgroundImage: sellerImg.isNotEmpty ? NetworkImage(sellerImg) : null,
-                  child: sellerImg.isEmpty
-                      ? Text(sellerName.isNotEmpty ? sellerName[0].toUpperCase() : 'W',
-                          style: const TextStyle(color: _teal, fontWeight: FontWeight.bold, fontSize: 18))
-                      : null),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // IMAGE
+          if (imageUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
               ),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                GestureDetector(
-                  onTap: () => _showProfile(context, sellerId),
-                  child: Text(sellerName,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87))),
-                Row(children: [
-                  Icon(Icons.star_rounded, size: 13, color: Colors.amber[600]),
-                  const SizedBox(width: 2),
-                  Text(rating.toStringAsFixed(1),
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[600])),
-                  if (orders > 0) Text('  ·  $orders orders',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400])),
-                  if (sellerCity.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Icon(Icons.location_city_outlined, size: 11, color: Colors.grey[400]),
-                    const SizedBox(width: 2),
-                    Text(sellerCity, style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Image.network(
+                imageUrl,
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox(),
+              ),
+            ),
+
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // SELLER ROW
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundImage: sellerImg.isNotEmpty
+                          ? NetworkImage(sellerImg)
+                          : null,
+                      child: sellerImg.isEmpty
+                          ? Text(displayName[0].toUpperCase())
+                          : null,
+                    ),
+                    const SizedBox(width: 10),
+
+                    // ✅ FIX: wrap with Expanded
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            sellerCity,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Text("PKR ${price.toStringAsFixed(0)}"),
                   ],
-                ]),
-              ])),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text('PKR ${price.toStringAsFixed(0)}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _teal)),
-                Text('starting', style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-              ]),
-            ]),
+                ),
 
-            const Divider(height: 18, color: Color(0xFFF0F0F0)),
+                const SizedBox(height: 10),
 
-            // ── Title + desc ─────────────────────────────
-            Text(title, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800,
-                color: Colors.black87, letterSpacing: -0.2)),
-            if (desc.isNotEmpty) ...[
-              const SizedBox(height: 5),
-              Text(desc, style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.45),
-                maxLines: 2, overflow: TextOverflow.ellipsis),
-            ],
-            const SizedBox(height: 10),
+                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
 
-            // ── Skills ───────────────────────────────────
-            if (skills.isNotEmpty) Wrap(spacing: 6, runSpacing: 5,
-              children: skills.take(4).map((s) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _teal.withOpacity(0.07), borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: _teal.withOpacity(0.15))),
-                child: Text(s, style: const TextStyle(fontSize: 11.5, color: _teal, fontWeight: FontWeight.w600)),
-              )).toList()),
-            const SizedBox(height: 12),
+                if (desc.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
 
-            // ── Footer row ───────────────────────────────
-            Row(children: [
-              if (delivery.isNotEmpty) ...[
-                Icon(Icons.schedule_outlined, size: 13, color: Colors.grey[400]),
-                const SizedBox(width: 4),
-                Text(delivery, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                const SizedBox(width: 8),
+                const SizedBox(height: 8),
+
+                if (skills.isNotEmpty)
+                  Wrap(
+                    spacing: 6,
+                    children: skills
+                        .take(3)
+                        .map((s) => Chip(label: Text(s)))
+                        .toList(),
+                  ),
+
+                const SizedBox(height: 10),
+
+                // ✅🔥 FIXED FOOTER ROW (MAIN ERROR SOURCE)
+                Row(
+                  children: [
+                    // DELIVERY
+                    if (delivery.isNotEmpty)
+                      Expanded(
+                        child: Text(
+                          delivery,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+
+                    // SPEAK BUTTON (FIXED SIZE)
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: SpeakButton(
+                        text: '$title. $desc.',
+                        contentId: 'offer_$offerId',
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // BUTTON (FIXED SIZE)
+                    SizedBox(
+                      width: 110,
+                      height: 40,
+                      child: ElevatedButton(
+                        onPressed: () => showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          useSafeArea: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => OfferPlaceOrderSheet(
+                            offerData: offerData,
+                            offerId: offerId,
+                            buyerUid: buyerUid,
+                            buyerCity: buyerCity,
+                          ),
+                        ),
+                        child: const Text(
+                          "Order",
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
-              SpeakButton(text: '$title. $desc.', contentId: 'offer_$offerId'),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: () => _openSheet(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _teal, foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 0),
-                child: const Text('Place Order', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-              ),
-            ]),
-          ])),
-      ]),
+            ),
+          ),
+        ],
+      ),
     );
-  }
-
-  void _openSheet(BuildContext ctx) => showModalBottomSheet(
-    context: ctx, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent,
-    builder: (_) => OfferPlaceOrderSheet(
-      offerData: offerData, offerId: offerId, buyerUid: buyerUid, buyerCity: buyerCity));
-
-  void _showProfile(BuildContext ctx, String sid) {
-    if (sid.isEmpty) return;
-    showModalBottomSheet(
-      context: ctx, isScrollControlled: true, backgroundColor: Colors.transparent,
-      builder: (_) => SellerProfileSheet(
-        sellerId: sid, buyerUid: buyerUid, buyerCity: buyerCity));
   }
 }
