@@ -3875,10 +3875,10 @@ class _EditBidSheetState extends State<_EditBidSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: 200 // MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(10),
         child: Form(
           key: _formKey,
           child: Column(
@@ -4366,7 +4366,7 @@ class _PlaceBidSheetState extends State<_PlaceBidSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom:  200 , //MediaQuery.of(context).viewInsets.bottom ,
+        bottom: 150 // MediaQuery.of(context).viewInsets.bottom ,
       ),
       child: Container(
         padding: const EdgeInsets.all(20),
