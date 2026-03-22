@@ -112,12 +112,14 @@ class HomePageState extends State<HomePage>
           try {
             final us = await FirebaseFirestore.instance.collection('users')
                 .where(FieldPath.documentId, whereIn: chunk).get();
-            for (final ud in us.docs) _userCache[ud.id] = ud.data() as Map<String, dynamic>;
+            for (final ud in us.docs) {
+              _userCache[ud.id] = ud.data();
+            }
           } catch (_) {}
         }
       }
       var workers = snap.docs.map((doc) {
-        final sd = doc.data() as Map<String, dynamic>;
+        final sd = doc.data();
         final ud = _userCache[doc.id] ?? {};
         return {
           ...sd, '_uid': doc.id,
@@ -384,7 +386,7 @@ class _OffersSectionState extends State<_OffersSection> {
         return;
       }
       final raw = snap.docs
-          .map((d) => {...d.data() as Map<String, dynamic>, '_offerId': d.id})
+          .map((d) => {...d.data(), '_offerId': d.id})
           .toList();
       final sids = raw
           .map((o) => (o['sellerId'] as String? ?? '').trim())
@@ -396,7 +398,9 @@ class _OffersSectionState extends State<_OffersSection> {
           try {
             final us = await FirebaseFirestore.instance.collection('users')
                 .where(FieldPath.documentId, whereIn: chunk).get();
-            for (final ud in us.docs) _cache[ud.id] = ud.data() as Map<String, dynamic>;
+            for (final ud in us.docs) {
+              _cache[ud.id] = ud.data();
+            }
           } catch (_) {}
         }
       }
@@ -633,9 +637,11 @@ class _OfferCard extends StatelessWidget {
             Row(children: [
               GestureDetector(
                 onTap: () {
-                  if (sellerId.isNotEmpty) showModalBottomSheet(
+                  if (sellerId.isNotEmpty) {
+                    showModalBottomSheet(
                     context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
                     builder: (_) => SellerProfileSheet(sellerId: sellerId, buyerUid: buyerUid, buyerCity: buyerCity));
+                  }
                 },
                 child: Container(
                   decoration: BoxDecoration(shape: BoxShape.circle,

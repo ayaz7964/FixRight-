@@ -1501,7 +1501,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
             // Total unread count badge on language button
             final totalUnread = (snap.data ?? []).fold<int>(
               0,
-              (sum, c) => sum + ((c.unreadCounts[_currentUserId] ?? 0) as int),
+              (sum, c) => sum + ((c.unreadCounts[_currentUserId] ?? 0)),
             );
             return Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -1571,7 +1571,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen> {
     final otherName = conversation.getOtherParticipantName(_currentUserId) ?? 'Unknown';
     final otherImg  = conversation.getOtherParticipantImage(_currentUserId) ?? '';
     final roles     = conversation.participantRoles ?? {};
-    final otherRole = roles[otherId] as String? ?? '';
+    final otherRole = roles[otherId] ?? '';
     final jobTitle  = '';
 
     if (otherId.isEmpty) return;
@@ -1650,9 +1650,9 @@ class _ConversationTile extends StatelessWidget {
     final otherName = conversation.getOtherParticipantName(myUid) ?? 'Unknown';
     final otherImg  = conversation.getOtherParticipantImage(myUid) ?? '';
     final roles     = conversation.participantRoles ?? {};
-    final otherRole = roles[otherId] as String? ?? '';
+    final otherRole = roles[otherId] ?? '';
     // ✅ Unread from ChatConversation model — same as original
-    final unread    = (conversation.unreadCounts[myUid] ?? 0) as int;
+    final unread    = (conversation.unreadCounts[myUid] ?? 0);
     final hasUnread = unread > 0;
     final lastMsg   = conversation.lastMessage;
     final lastAt    = conversation.lastMessageAt;

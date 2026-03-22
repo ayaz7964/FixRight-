@@ -353,7 +353,7 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
           _navItem(1, Icons.chat_bubble_rounded,     Icons.chat_bubble_outline_rounded,'Chat'),
           _postOfferBtn(),
           _navItem(3, Icons.receipt_long_rounded,    Icons.receipt_long_outlined,     'My Orders'),
-          _navItem(4, Icons.person_rounded,          Icons.person_outline_rounded,    'Profile'),
+          _navItem(4, Icons.person_rounded,          Icons.person_outline_rounded,    'Account'),
         ],
       ),
     );

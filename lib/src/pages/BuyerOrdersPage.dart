@@ -134,10 +134,12 @@ class _JobsList extends StatelessWidget {
           .where('status', isEqualTo: status)
           .snapshots(),
       builder: (ctx, snap) {
-        if (snap.connectionState == ConnectionState.waiting)
+        if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Colors.teal));
-        if (snap.hasError)
+        }
+        if (snap.hasError) {
           return Center(child: Text('Error: ${snap.error}', style: const TextStyle(color: Colors.red)));
+        }
         final docs = (snap.data?.docs ?? [])
           ..sort((a, b) {
             final aT = (a.data() as Map)['postedAt'] as Timestamp?;
@@ -170,8 +172,9 @@ class _InProgressList extends StatelessWidget {
           .where('postedBy', isEqualTo: uid)
           .snapshots(),
       builder: (ctx, snap) {
-        if (snap.connectionState == ConnectionState.waiting)
+        if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Colors.teal));
+        }
         final docs = (snap.data?.docs ?? []).where((d) {
           final s = (d.data() as Map)['status'];
           return s == 'in_progress' ||
@@ -211,8 +214,9 @@ class _CompletedList extends StatelessWidget {
           .where('postedBy', isEqualTo: uid)
           .snapshots(),
       builder: (ctx, snap) {
-        if (snap.connectionState == ConnectionState.waiting)
+        if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Colors.teal));
+        }
         final docs = (snap.data?.docs ?? []).where((d) {
           final s = (d.data() as Map)['status'];
           return s == 'completed' || s == 'expert_completed';
@@ -1014,7 +1018,7 @@ class _BidCard extends StatefulWidget {
 }
 
 class _BidCardState extends State<_BidCard> {
-  bool _isAccepting = false;
+  final bool _isAccepting = false;
 
   Future<Map<String, dynamic>> _getSellerInfo(String sellerId) async {
     final doc = await FirebaseFirestore.instance.collection('sellers').doc(sellerId).get();

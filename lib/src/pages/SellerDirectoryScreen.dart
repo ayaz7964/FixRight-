@@ -799,7 +799,7 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
 
   StreamSubscription<QuerySnapshot>? _sellerSub;
   List<Map<String, dynamic>> _mergedSellers = [];
-  Map<String, Map<String, dynamic>> _userCache = {};
+  final Map<String, Map<String, dynamic>> _userCache = {};
   bool _loading = true;
 
   final _searchCtrl = TextEditingController();
@@ -841,7 +841,7 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
           // ── exclude the logged-in user from their own directory view ──
           .where((doc) => doc.id.trim() != myUid)
           .map((doc) {
-        final sd        = doc.data() as Map<String, dynamic>;
+        final sd        = doc.data();
         final ud        = _userCache[doc.id] ?? {};
         final firstName = (ud['firstName'] as String? ?? sd['firstName'] as String? ?? '').trim();
         final lastName  = (ud['lastName']  as String? ?? sd['lastName']  as String? ?? '').trim();
@@ -875,7 +875,7 @@ class _SellerDirectoryScreenState extends State<SellerDirectoryScreen> {
             .where(FieldPath.documentId, whereIn: batch)
             .get();
         for (final doc in snap.docs) {
-          _userCache[doc.id] = doc.data() as Map<String, dynamic>;
+          _userCache[doc.id] = doc.data();
         }
       } catch (_) {}
     }
@@ -1248,8 +1248,8 @@ class _SellerProfileSheetState extends State<SellerProfileSheet> {
         FirebaseFirestore.instance.collection('sellers').doc(widget.sellerId).get(),
         FirebaseFirestore.instance.collection('users').doc(widget.sellerId).get(),
       ]);
-      final sd = results[0].data() as Map<String, dynamic>? ?? {};
-      final ud = results[1].data() as Map<String, dynamic>? ?? {};
+      final sd = results[0].data() ?? {};
+      final ud = results[1].data() ?? {};
       final merged = {
         ...sd,
         'profileImage': (ud['profileImage'] as String? ?? '').trim(),
@@ -1269,7 +1269,7 @@ class _SellerProfileSheetState extends State<SellerProfileSheet> {
       final snap = await FirebaseFirestore.instance
           .collection('sellers').doc(widget.sellerId)
           .collection('ratings').limit(20).get();
-      final reviews = snap.docs.map((d) => d.data() as Map<String, dynamic>).toList();
+      final reviews = snap.docs.map((d) => d.data()).toList();
       reviews.sort((a, b) {
         final at = (a['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
         final bt = (b['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;

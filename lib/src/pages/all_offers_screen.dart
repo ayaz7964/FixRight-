@@ -968,9 +968,13 @@ class _AllOffersScreenState extends State<AllOffersScreen> {
                 ? (ud['city'] as String? ?? '').trim()
                 : '';
           }
-          for (final uid in chunk) _cityCache.putIfAbsent(uid, () => '');
+          for (final uid in chunk) {
+            _cityCache.putIfAbsent(uid, () => '');
+          }
         } catch (_) {
-          for (final uid in chunk) _cityCache.putIfAbsent(uid, () => '');
+          for (final uid in chunk) {
+            _cityCache.putIfAbsent(uid, () => '');
+          }
         }
       }
     }
@@ -1019,10 +1023,12 @@ class _AllOffersScreenState extends State<AllOffersScreen> {
     }
 
     list.sort((a, b) {
-      if (_sort == 'price_asc')
+      if (_sort == 'price_asc') {
         return ((a['price'] ?? 0) as num).compareTo((b['price'] ?? 0) as num);
-      if (_sort == 'price_desc')
+      }
+      if (_sort == 'price_desc') {
         return ((b['price'] ?? 0) as num).compareTo((a['price'] ?? 0) as num);
+      }
       return ((b['rating'] ?? 0.0) as num).compareTo((a['rating'] ?? 0.0) as num);
     });
 

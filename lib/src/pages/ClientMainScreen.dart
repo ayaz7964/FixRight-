@@ -352,7 +352,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
           _navItem(1, Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 'Chat'),
           _postJobBtn(),
           _navItem(3, Icons.receipt_long_rounded, Icons.receipt_long_outlined, 'My Orders'),
-          _navItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),
+          _navItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Account'),
         ],
       ),
     );

@@ -1396,12 +1396,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'unreadCounts.${widget.myUid}': 0,
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollCtrl.hasClients)
+        if (_scrollCtrl.hasClients) {
           _scrollCtrl.animateTo(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+        }
       });
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Send failed: $e'), backgroundColor: Colors.red));
+      }
     } finally { if (mounted) setState(() => _sending = false); }
   }
 
@@ -1420,12 +1423,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Cannot open dialer for $phone'), backgroundColor: Colors.red));
+        }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Call failed: ${e.toString()}'), backgroundColor: Colors.red));
+      }
     }
   }
 
@@ -1546,12 +1553,12 @@ class _UserInfoSheetState extends State<_UserInfoSheet> {
       // Try users collection first, then sellers
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(widget.uid).get();
       if (userDoc.exists) {
-        setState(() { _profileData = userDoc.data() as Map<String, dynamic>?; _loading = false; });
+        setState(() { _profileData = userDoc.data(); _loading = false; });
         return;
       }
       final sellerDoc = await FirebaseFirestore.instance.collection('sellers').doc(widget.uid).get();
       if (sellerDoc.exists) {
-        setState(() { _profileData = sellerDoc.data() as Map<String, dynamic>?; _loading = false; });
+        setState(() { _profileData = sellerDoc.data(); _loading = false; });
         return;
       }
     } catch (_) {}
@@ -1563,7 +1570,7 @@ class _UserInfoSheetState extends State<_UserInfoSheet> {
     final data = _profileData ?? {};
     final firstName = data['firstName'] as String? ?? '';
     final lastName  = data['lastName']  as String? ?? '';
-    final fullName  = '${widget.name}'.trim().isNotEmpty ? widget.name : '$firstName $lastName'.trim();
+    final fullName  = widget.name.trim().isNotEmpty ? widget.name : '$firstName $lastName'.trim();
     final city      = data['city']    as String? ?? '';
     final phone     = data['phone']   as String? ?? widget.uid;
     final bio       = data['bio']     as String? ?? '';
@@ -1721,8 +1728,9 @@ class _MessagesList extends StatelessWidget {
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (ctx, snap) {
-        if (snap.connectionState == ConnectionState.waiting)
+        if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Color(0xFF00695C), strokeWidth: 2));
+        }
         final docs = snap.data?.docs ?? [];
         if (docs.isEmpty) return const _NoMessages();
 
@@ -1785,8 +1793,9 @@ class _DateSeparator extends StatelessWidget {
     final dt  = ts!.toDate();
     final now = DateTime.now();
     String label;
-    if (_sameDay(dt, now)) label = 'Today';
-    else if (_sameDay(dt, now.subtract(const Duration(days: 1)))) label = 'Yesterday';
+    if (_sameDay(dt, now)) {
+      label = 'Today';
+    } else if (_sameDay(dt, now.subtract(const Duration(days: 1)))) label = 'Yesterday';
     else label = DateFormat('MMMM d, yyyy').format(dt);
     return Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [
       Expanded(child: Divider(color: Colors.grey.shade300, thickness: 0.7)),

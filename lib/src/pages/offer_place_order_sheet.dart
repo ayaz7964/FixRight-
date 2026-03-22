@@ -193,8 +193,10 @@ class _OfferPlaceOrderSheetState extends State<OfferPlaceOrderSheet> {
         backgroundColor: Colors.green, duration: const Duration(seconds: 6),
       ));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
     } finally { if (mounted) setState(() => _isPlacing = false); }
   }
 
@@ -299,7 +301,7 @@ class _OfferPlaceOrderSheetState extends State<OfferPlaceOrderSheet> {
             child: Column(children: [
               SwitchListTile(
                 value: _wantsInsurance, onChanged: (v) => setState(() => _wantsInsurance = v),
-                activeColor: Colors.blue,
+                activeThumbColor: Colors.blue,
                 title: const Text('Add Insurance Protection', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 subtitle: const Text('+20% of price — Guaranteed completion + 3-day claim window', style: TextStyle(fontSize: 11.5)),
                 secondary: Icon(Icons.shield_rounded, color: _wantsInsurance ? Colors.blue : Colors.grey, size: 26)),

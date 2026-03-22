@@ -1645,16 +1645,18 @@ class _OpenJobsListState extends State<_OpenJobsList> {
                 .where('status', isEqualTo: 'open')
                 .snapshots(),
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting)
+              if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: CircularProgressIndicator(color: Colors.green),
                 );
-              if (!snap.hasData || snap.data!.docs.isEmpty)
+              }
+              if (!snap.hasData || snap.data!.docs.isEmpty) {
                 return const _SellerEmptyState(
                   icon: Icons.work_outline,
                   message: 'No open jobs right now',
                   subtitle: 'Check back soon',
                 );
+              }
               var allDocs = snap.data!.docs.where((d) {
                 final data = d.data() as Map<String, dynamic>;
                 if (data['postedBy'] == widget.sellerUid) return false;
@@ -1705,12 +1707,13 @@ class _OpenJobsListState extends State<_OpenJobsList> {
                   return bT.compareTo(aT);
                 });
               }
-              if (allDocs.isEmpty)
+              if (allDocs.isEmpty) {
                 return const _SellerEmptyState(
                   icon: Icons.search_off,
                   message: 'No jobs match your search',
                   subtitle: 'Try different keywords',
                 );
+              }
               return ListView.builder(
                 padding: const EdgeInsets.all(12),
                 itemCount: allDocs.length,
@@ -2207,7 +2210,7 @@ class _JobDetailScreenState extends State<_JobDetailScreen> {
       final commissionRequired = isFree ? 0.0 : budget * rate;
       final isEligible = isFree || freeBalance >= commissionRequired;
 
-      if (mounted)
+      if (mounted) {
         setState(() {
           _alreadyBid = bidDoc.exists;
           _ownBidData = bidDoc.exists
@@ -2228,6 +2231,7 @@ class _JobDetailScreenState extends State<_JobDetailScreen> {
           };
           _checkingBid = false;
         });
+      }
     } catch (e) {
       if (mounted) setState(() => _checkingBid = false);
     }
@@ -2242,12 +2246,13 @@ class _JobDetailScreenState extends State<_JobDetailScreen> {
           .collection('bids')
           .doc(widget.sellerUid)
           .get();
-      if (mounted)
+      if (mounted) {
         setState(
           () => _ownBidData = bidDoc.exists
               ? bidDoc.data() as Map<String, dynamic>
               : null,
         );
+      }
     } catch (_) {}
   }
 
@@ -3098,7 +3103,7 @@ class _JobDetailScreenState extends State<_JobDetailScreen> {
         ),
       );
     }
-    if (isFree)
+    if (isFree) {
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -3134,6 +3139,7 @@ class _JobDetailScreenState extends State<_JobDetailScreen> {
           ],
         ),
       );
+    }
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -3182,7 +3188,7 @@ class _JobDetailScreenState extends State<_JobDetailScreen> {
 
   Widget _buildPlaceBidSection(double budget, bool isInsured) {
     final isEligible = _sellerInfo?['isEligible'] ?? true;
-    if (!isEligible)
+    if (!isEligible) {
       return SizedBox(
         width: double.infinity,
         child: OutlinedButton.icon(
@@ -3199,6 +3205,7 @@ class _JobDetailScreenState extends State<_JobDetailScreen> {
           ),
         ),
       );
+    }
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -3361,7 +3368,7 @@ class _AllBidsSection extends StatelessWidget {
                 sellerInfo: sellerInfo,
                 onBidEdited: onBidEdited,
               );
-            }).toList(),
+            }),
           ],
         );
       },
@@ -4096,8 +4103,9 @@ class _EditBidSheetState extends State<_EditBidSheet> {
                   if (v == null || v.isEmpty) return 'Enter bid amount';
                   final amt = double.tryParse(v);
                   if (amt == null || amt <= 0) return 'Enter valid amount';
-                  if (amt > budget)
+                  if (amt > budget) {
                     return 'Cannot exceed PKR ${budget.toStringAsFixed(0)}';
+                  }
                   return null;
                 },
               ),
@@ -4324,7 +4332,7 @@ class _PlaceBidSheetState extends State<_PlaceBidSheet> {
       await batch.commit();
 
       final buyerUid = widget.jobData['postedBy'] as String? ?? '';
-      if (buyerUid.isNotEmpty)
+      if (buyerUid.isNotEmpty) {
         await NotificationService.send(
           toUid: buyerUid,
           title: '🔔 New Bid Received',
@@ -4334,6 +4342,7 @@ class _PlaceBidSheetState extends State<_PlaceBidSheet> {
           jobId: widget.jobId,
           relatedUserName: sellerName,
         );
+      }
       if (!mounted) return;
       widget.onBidPlaced();
       Navigator.pop(context);
@@ -4640,8 +4649,9 @@ class _PlaceBidSheetState extends State<_PlaceBidSheet> {
                   if (v == null || v.isEmpty) return 'Enter bid amount';
                   final amt = double.tryParse(v);
                   if (amt == null || amt <= 0) return 'Enter valid amount';
-                  if (amt > budget)
+                  if (amt > budget) {
                     return 'Cannot exceed PKR ${budget.toStringAsFixed(0)}';
+                  }
                   return null;
                 },
               ),
@@ -4754,11 +4764,12 @@ class _MyBidsList extends StatelessWidget {
           .collection('myBids')
           .snapshots(),
       builder: (ctx, snap) {
-        if (snap.connectionState == ConnectionState.waiting)
+        if (snap.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(color: Colors.green),
           );
-        if (snap.hasError)
+        }
+        if (snap.hasError) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -4776,12 +4787,14 @@ class _MyBidsList extends StatelessWidget {
               ),
             ),
           );
-        if (!snap.hasData || snap.data!.docs.isEmpty)
+        }
+        if (!snap.hasData || snap.data!.docs.isEmpty) {
           return const _SellerEmptyState(
             icon: Icons.gavel,
             message: 'No bids placed yet',
             subtitle: 'Browse open jobs and place your first bid',
           );
+        }
         final docs = snap.data!.docs.toList()
           ..sort((a, b) {
             final aT = (a.data() as Map)['createdAt'] as Timestamp?;
@@ -5169,16 +5182,18 @@ class _ActiveJobsList extends StatelessWidget {
           .where('acceptedBidder', isEqualTo: sellerUid)
           .snapshots(),
       builder: (ctx, snap) {
-        if (snap.connectionState == ConnectionState.waiting)
+        if (snap.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(color: Colors.green),
           );
-        if (!snap.hasData)
+        }
+        if (!snap.hasData) {
           return const _SellerEmptyState(
             icon: Icons.construction,
             message: 'No active jobs',
             subtitle: 'Win a bid to start working',
           );
+        }
         final active = snap.data!.docs.where((d) {
           final s = (d.data() as Map)['status'];
           return s == 'in_progress' || s == 'claim_pending';
@@ -5197,12 +5212,13 @@ class _ActiveJobsList extends StatelessWidget {
             for (final d in [...active, ...expertJobs]) {
               if (allIds.add(d.id)) combined.add(d);
             }
-            if (combined.isEmpty)
+            if (combined.isEmpty) {
               return const _SellerEmptyState(
                 icon: Icons.construction,
                 message: 'No active jobs',
                 subtitle: 'Win a bid to start working',
               );
+            }
             return ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: combined.length,
@@ -5297,10 +5313,11 @@ class _ActiveJobCardState extends State<_ActiveJobCard> {
         ),
       );
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
+      }
     } finally {
       if (mounted) setState(() => _isCompleting = false);
     }
@@ -5825,10 +5842,11 @@ class _SellerHistoryTab extends StatelessWidget {
                 .where('expertUid', isEqualTo: sellerUid)
                 .snapshots(),
             builder: (ctx, eSnap) {
-              if (snap.connectionState == ConnectionState.waiting)
+              if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: CircularProgressIndicator(color: Colors.green),
                 );
+              }
               final allIds = <String>{};
               final allDocs = <QueryDocumentSnapshot>[];
               for (final d in [
@@ -6040,12 +6058,13 @@ class _BankDetailsSectionState extends State<_BankDetailsSection> {
                 data['status'] == 'expert_completed') &&
             data['paymentStatus'] != 'released';
       });
-      if (mounted)
+      if (mounted) {
         setState(() {
           _hasBankDetails = bankDoc.exists;
           _hasInsuredCompleted = insuredDone;
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -6121,8 +6140,9 @@ class _BankDetailsSectionState extends State<_BankDetailsSection> {
                   onPressed: () async {
                     if (bankCtrl.text.trim().isEmpty ||
                         titleCtrl.text.trim().isEmpty ||
-                        numCtrl.text.trim().isEmpty)
+                        numCtrl.text.trim().isEmpty) {
                       return;
+                    }
                     await FirebaseFirestore.instance
                         .collection('sellers')
                         .doc(widget.sellerUid)
@@ -6172,7 +6192,7 @@ class _BankDetailsSectionState extends State<_BankDetailsSection> {
   @override
   Widget build(BuildContext context) {
     if (_loading || !_hasInsuredCompleted) return const SizedBox();
-    if (_hasBankDetails)
+    if (_hasBankDetails) {
       return Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
@@ -6194,6 +6214,7 @@ class _BankDetailsSectionState extends State<_BankDetailsSection> {
           ],
         ),
       );
+    }
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),

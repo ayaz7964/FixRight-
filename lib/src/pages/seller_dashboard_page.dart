@@ -1589,8 +1589,8 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
       ]);
       if (mounted) {
         setState(() {
-          _userData   = results[0].data() as Map<String, dynamic>? ?? {};
-          _sellerData = results[1].data() as Map<String, dynamic>? ?? {};
+          _userData   = results[0].data() ?? {};
+          _sellerData = results[1].data() ?? {};
           _loadingProfile = false;
         });
       }
@@ -2240,7 +2240,7 @@ class _SellerOwnProfileSheetState extends State<_SellerOwnProfileSheet> {
       final snap = await FirebaseFirestore.instance
           .collection('sellers').doc(uid)
           .collection('ratings').limit(20).get();
-      final reviews = snap.docs.map((d) => d.data() as Map<String, dynamic>).toList();
+      final reviews = snap.docs.map((d) => d.data()).toList();
       reviews.sort((a, b) {
         final at = (a['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
         final bt = (b['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
