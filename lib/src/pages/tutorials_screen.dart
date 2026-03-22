@@ -3,20 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'tts_translation_service.dart';
 
-// ─────────────────────────────────────────────────────────────
-//  DEPENDENCY — add ONE line to pubspec.yaml:
-//
-//    url_launcher: ^6.2.6
-//
-//  ✅ Zero gradle changes
-//  ✅ Zero minSdk changes
-//  ✅ Zero AndroidManifest changes
-//  ✅ No native compilation — no Windows drive conflict
-//  ✅ Most Flutter projects already have it
-//
-//  Run: flutter pub get
-// ─────────────────────────────────────────────────────────────
-
 class TutorialsScreen extends StatefulWidget {
   final String uid;
   const TutorialsScreen({super.key, required this.uid});
@@ -75,6 +61,11 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
             backgroundColor: _teal,
             foregroundColor: Colors.white,
             elevation: 0,
+            // ✅ Language picker in app bar — changes translate+listen language globally
+            actions: const [
+              GlobalLanguageButton(color: Colors.white),
+              SizedBox(width: 8),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
@@ -140,13 +131,11 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
                 final l      = _languages[i];
                 final active = _selectedLanguage == l['code'];
                 return GestureDetector(
-                  onTap: () =>
-                      setState(() => _selectedLanguage = l['code']!),
+                  onTap: () => setState(() => _selectedLanguage = l['code']!),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: active ? _teal : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(20),
@@ -192,33 +181,50 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
   }
 
   Widget _buildList() {
-    Query query = FirebaseFirestore.instance
-        .collection('tutorials')
-        .where('isActive', isEqualTo: true)
-        .orderBy('order');
-
-    if (_selectedLanguage != 'all') {
-      query = query.where('language', isEqualTo: _selectedLanguage);
-    }
-
     return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
+      stream: FirebaseFirestore.instance.collection('tutorials').snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(
               child: CircularProgressIndicator(
                   color: Color(0xFF00695C), strokeWidth: 2));
         }
+        if (snap.hasError) {
+          return Center(
+              child: Text('Error loading tutorials',
+                  style: TextStyle(color: Colors.grey[500])));
+        }
 
         var docs = snap.data?.docs ?? [];
 
+        // All filtering + sorting client-side — no composite index needed
+        docs = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return (data['isActive'] as bool? ?? false) == true;
+        }).toList();
+
+        if (_selectedLanguage != 'all') {
+          docs = docs.where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            return (data['language'] as String? ?? '') == _selectedLanguage;
+          }).toList();
+        }
+
         if (_selectedCategory != 'all') {
           docs = docs.where((d) {
-            final cat = (d.data() as Map<String, dynamic>)['category']
-                    as String? ?? 'both';
+            final data = d.data() as Map<String, dynamic>;
+            final cat  = data['category'] as String? ?? 'both';
             return cat == _selectedCategory || cat == 'both';
           }).toList();
         }
+
+        docs.sort((a, b) {
+          final aO = (a.data() as Map<String, dynamic>)['order'];
+          final bO = (b.data() as Map<String, dynamic>)['order'];
+          final aI = (aO is int) ? aO : (aO is double ? aO.toInt() : 999);
+          final bI = (bO is int) ? bO : (bO is double ? bO.toInt() : 999);
+          return aI.compareTo(bI);
+        });
 
         if (docs.isEmpty) {
           return Center(
@@ -293,8 +299,7 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
                     style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               ])),
           Container(
-            width: 46,
-            height: 46,
+            width: 46, height: 46,
             decoration: BoxDecoration(
                 color: const Color(0xFF00695C).withOpacity(0.1),
                 shape: BoxShape.circle),
@@ -342,7 +347,7 @@ class _TutorialCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title       = (data['title']        as String? ?? 'Tutorial').trim();
+    final title       = (data['title']        as String? ?? '').trim();
     final description = (data['description']  as String? ?? '').trim();
     final duration    = (data['duration']     as String? ?? '').trim();
     final language    = (data['language']     as String? ?? 'en').trim();
@@ -353,6 +358,7 @@ class _TutorialCard extends StatelessWidget {
     final watched    = progress['watched']    == true;
     final quizPassed = progress['quizPassed'] == true;
     final score      = (progress['quizScore'] as int? ?? 0);
+    final totalQs    = (data['questions']     as List?)?.length ?? 0;
 
     final resolvedThumb = thumbUrl.isNotEmpty
         ? thumbUrl
@@ -385,16 +391,32 @@ class _TutorialCard extends StatelessWidget {
           ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          // Thumbnail
           Stack(children: [
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(18)),
               child: resolvedThumb.isNotEmpty
-                  ? Image.network(resolvedThumb,
+                  ? Image.network(
+                      resolvedThumb,
                       height: 160,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _defaultThumb())
+                      errorBuilder: (_, __, ___) => Image.network(
+                        resolvedThumb.replaceAll('maxresdefault', 'hqdefault'),
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Image.network(
+                          resolvedThumb.replaceAll('maxresdefault', 'mqdefault'),
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _defaultThumb(),
+                        ),
+                      ),
+                    )
                   : _defaultThumb(),
             ),
             Positioned.fill(
@@ -419,11 +441,12 @@ class _TutorialCard extends StatelessWidget {
               )),
             )),
             Positioned(
-                top: 10,
-                left: 10,
+                top: 10, left: 10,
                 child: Row(children: [
-                  _badge(_langFlag(language), Colors.black54),
-                  const SizedBox(width: 6),
+                  if (language.isNotEmpty) ...[
+                    _badge(_langFlag(language), Colors.black54),
+                    const SizedBox(width: 6),
+                  ],
                   _badge(
                       category == 'buyer'
                           ? '🛒 Buyer'
@@ -433,8 +456,7 @@ class _TutorialCard extends StatelessWidget {
                       Colors.black54),
                 ])),
             Positioned(
-                top: 10,
-                right: 10,
+                top: 10, right: 10,
                 child: quizPassed
                     ? _badge('✅ Completed', Colors.green.shade700)
                     : watched
@@ -442,38 +464,44 @@ class _TutorialCard extends StatelessWidget {
                         : _badge('New', Colors.blueGrey.shade600)),
             if (duration.isNotEmpty)
               Positioned(
-                  bottom: 10,
-                  right: 10,
+                  bottom: 10, right: 10,
                   child: _badge('⏱ $duration', Colors.black54)),
           ]),
 
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+              // ✅ Title — translate + listen chip built into TranslatedText
               TranslatedText(
-                text: title,
+                text: title.isNotEmpty ? title : 'Untitled Tutorial',
                 contentId: 'tut_title_$tutorialId',
                 style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: Colors.black87),
                 maxLines: 2,
-                showListenButton: false,
+                showListenButton: true, // ✅ shows translate + listen
               ),
-              const SizedBox(height: 6),
-              TranslatedText(
-                text: description,
-                contentId: 'tut_desc_$tutorialId',
-                style: TextStyle(
-                    fontSize: 12.5, color: Colors.grey[600], height: 1.45),
-                maxLines: 2,
-                showListenButton: true,
-              ),
+
+              // ✅ Description — translate + listen chip
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                TranslatedText(
+                  text: description,
+                  contentId: 'tut_desc_$tutorialId',
+                  style: TextStyle(
+                      fontSize: 12.5, color: Colors.grey[600], height: 1.45),
+                  maxLines: 2,
+                  showListenButton: true, // ✅ shows translate + listen
+                ),
+              ],
+
               if (quizPassed) ...[
                 const SizedBox(height: 10),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                       color: Colors.green.shade50,
                       borderRadius: BorderRadius.circular(10),
@@ -482,8 +510,7 @@ class _TutorialCard extends StatelessWidget {
                     Icon(Icons.star_rounded,
                         color: Colors.green.shade600, size: 15),
                     const SizedBox(width: 5),
-                    Text(
-                        'Quiz passed — score $score/${(data['questions'] as List?)?.length ?? 0}',
+                    Text('Quiz passed — score $score/$totalQs',
                         style: TextStyle(
                             fontSize: 12,
                             color: Colors.green.shade700,
@@ -499,12 +526,12 @@ class _TutorialCard extends StatelessWidget {
   }
 
   String _youtubeThumbnail(String url) {
+    if (url.isEmpty) return '';
     final match = RegExp(
             r'(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^"&?\/\s]{11})')
         .firstMatch(url);
-    return match != null
-        ? 'https://img.youtube.com/vi/${match.group(1)}/hqdefault.jpg'
-        : '';
+    if (match == null) return '';
+    return 'https://img.youtube.com/vi/${match.group(1)}/maxresdefault.jpg';
   }
 
   Widget _defaultThumb() => Container(
@@ -543,7 +570,6 @@ class _TutorialCard extends StatelessWidget {
 
 // ═══════════════════════════════════════════════════════════════
 //  TUTORIAL DETAIL SCREEN
-//  Tapping "Watch Video" opens YouTube app via url_launcher
 // ═══════════════════════════════════════════════════════════════
 class TutorialDetailScreen extends StatefulWidget {
   final String tutorialId, uid;
@@ -581,46 +607,42 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
   @override
   void initState() {
     super.initState();
-
-    final url = widget.data['youtubeUrl'] as String? ?? '';
-    final match = RegExp(
-            r'(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^"&?\/\s]{11})')
-        .firstMatch(url);
-    _videoId = match?.group(1) ?? '';
-
-    final qs = widget.data['questions'];
-    if (qs is List) {
-      _questions =
-          qs.map((q) => Map<String, dynamic>.from(q as Map)).toList();
+    final url = (widget.data['youtubeUrl'] as String? ?? '').trim();
+    if (url.isNotEmpty) {
+      final match = RegExp(
+              r'(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^"&?\/\s]{11})')
+          .firstMatch(url);
+      _videoId = match?.group(1) ?? '';
     }
-
-    if (widget.progress['watched'] == true) _videoWatched = true;
+    final qs = widget.data['questions'];
+    if (qs is List && qs.isNotEmpty) {
+      _questions = qs.whereType<Map>()
+          .map((q) => Map<String, dynamic>.from(q))
+          .toList();
+    }
+    if (widget.progress['watched']    == true) _videoWatched = true;
     if (widget.progress['quizPassed'] == true) {
       _quizPassed = true;
       _quizDone   = true;
     }
   }
 
-  // ── Open YouTube ──────────────────────────────────────────
   Future<void> _openYouTube() async {
     if (_videoId.isEmpty) return;
-
-    // Try YouTube app first, fall back to browser
     final appUrl     = Uri.parse('youtube://www.youtube.com/watch?v=$_videoId');
     final browserUrl = Uri.parse('https://www.youtube.com/watch?v=$_videoId');
-
     try {
       if (await canLaunchUrl(appUrl)) {
         await launchUrl(appUrl);
       } else {
-        await launchUrl(browserUrl,
-            mode: LaunchMode.externalApplication);
+        await launchUrl(browserUrl, mode: LaunchMode.externalApplication);
       }
-      // Mark watched after opening
       await _markWatched();
     } catch (_) {
-      await launchUrl(browserUrl, mode: LaunchMode.externalApplication);
-      await _markWatched();
+      try {
+        await launchUrl(browserUrl, mode: LaunchMode.externalApplication);
+        await _markWatched();
+      } catch (_) {}
     }
   }
 
@@ -639,7 +661,8 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
 
   Future<void> _saveQuizResult(bool passed, int score) async {
     if (widget.uid.isEmpty) return;
-    final attempts = ((widget.progress['quizAttempts'] as int?) ?? 0) + 1;
+    final attempts =
+        ((widget.progress['quizAttempts'] as int?) ?? 0) + 1;
     await FirebaseFirestore.instance
         .collection('tutorial_progress')
         .doc(widget.uid)
@@ -657,8 +680,8 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
   void _submitQuiz() {
     int correct = 0;
     for (int i = 0; i < _questions.length; i++) {
-      if (_answers[i] == (_questions[i]['correctIndex'] as int? ?? 0))
-        correct++;
+      if (_answers[i] ==
+          (_questions[i]['correctIndex'] as int? ?? 0)) correct++;
     }
     final passed =
         _questions.isNotEmpty && correct / _questions.length >= 0.6;
@@ -672,11 +695,11 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.data['title'] as String? ?? 'Tutorial';
+    final title = (widget.data['title'] as String? ?? 'Tutorial').trim();
     return Scaffold(
       backgroundColor: const Color(0xFFF2F4F7),
       appBar: AppBar(
-        title: Text(_quizMode ? 'Quiz' : title,
+        title: Text(_quizMode ? 'Quiz' : (title.isNotEmpty ? title : 'Tutorial'),
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
@@ -684,52 +707,57 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
         foregroundColor: Colors.black87,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        // ✅ Language picker also available in detail screen
+        actions: const [
+          GlobalLanguageButton(color: Colors.black87),
+          SizedBox(width: 8),
+        ],
       ),
       body: _quizMode ? _buildQuiz() : _buildDetail(),
     );
   }
 
-  // ── Detail view ───────────────────────────────────────────
   Widget _buildDetail() {
-    final desc  = widget.data['description'] as String? ?? '';
-    final title = widget.data['title']       as String? ?? '';
-    final thumbUrl   = (widget.data['thumbnailUrl'] as String? ?? '').trim();
-    final resolvedThumb = thumbUrl.isNotEmpty
+    final desc     = (widget.data['description']  as String? ?? '').trim();
+    final title    = (widget.data['title']        as String? ?? '').trim();
+    final thumbUrl = (widget.data['thumbnailUrl'] as String? ?? '').trim();
+
+    final maxThumb = thumbUrl.isNotEmpty
         ? thumbUrl
         : (_videoId.isNotEmpty
-            ? 'https://img.youtube.com/vi/$_videoId/hqdefault.jpg'
+            ? 'https://img.youtube.com/vi/$_videoId/maxresdefault.jpg'
             : '');
+    final hqThumb = maxThumb.replaceAll('maxresdefault', 'hqdefault');
+    final mqThumb = maxThumb.replaceAll('maxresdefault', 'mqdefault');
 
     return SingleChildScrollView(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        // ── VIDEO THUMBNAIL + WATCH BUTTON ────────────────
+        // Video thumbnail
         Stack(children: [
-          // Thumbnail
           SizedBox(
-            height: 220,
-            width: double.infinity,
-            child: resolvedThumb.isNotEmpty
-                ? Image.network(resolvedThumb,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _defaultThumbWidget())
+            height: 220, width: double.infinity,
+            child: maxThumb.isNotEmpty
+                ? Image.network(maxThumb, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Image.network(hqThumb,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Image.network(mqThumb,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _defaultThumbWidget())))
                 : _defaultThumbWidget(),
           ),
-          // Dark overlay
           Positioned.fill(
               child: Container(color: Colors.black.withOpacity(0.45))),
-
-          // ── Play button + label ──
           Positioned.fill(
               child: Center(
             child: GestureDetector(
               onTap: _videoId.isNotEmpty ? _openYouTube : null,
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Container(
-                  width: 72,
-                  height: 72,
+                  width: 72, height: 72,
                   decoration: BoxDecoration(
-                    color: _teal,
+                    color: _videoId.isNotEmpty ? _teal : Colors.grey,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
@@ -749,8 +777,11 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                     color: Colors.black.withOpacity(0.55),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text('Watch on YouTube',
-                      style: TextStyle(
+                  child: Text(
+                      _videoId.isNotEmpty
+                          ? 'Watch on YouTube'
+                          : 'No video available',
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w700)),
@@ -758,12 +789,9 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
               ]),
             ),
           )),
-
-          // ── Watched badge (top right) ──
           if (_videoWatched)
             Positioned(
-              top: 12,
-              right: 12,
+              top: 12, right: 12,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 5),
@@ -786,33 +814,36 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
 
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            // Title
-            TranslatedText(
-              text: title,
-              contentId: 'vtitle_${widget.tutorialId}',
-              style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black87),
-              showListenButton: false,
-            ),
-            const SizedBox(height: 10),
+            // ✅ Title — translate + listen
+            if (title.isNotEmpty)
+              TranslatedText(
+                text: title,
+                contentId: 'vtitle_${widget.tutorialId}',
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black87),
+                showListenButton: true,
+              ),
 
-            // Description
-            TranslatedText(
-              text: desc,
-              contentId: 'vdesc_${widget.tutorialId}',
-              style: TextStyle(
-                  fontSize: 13.5, color: Colors.grey[700], height: 1.55),
-              showListenButton: true,
-            ),
+            // ✅ Description — translate + listen
+            if (desc.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              TranslatedText(
+                text: desc,
+                contentId: 'vdesc_${widget.tutorialId}',
+                style: TextStyle(
+                    fontSize: 13.5, color: Colors.grey[700], height: 1.55),
+                showListenButton: true,
+              ),
+            ],
 
             const SizedBox(height: 20),
 
-            // ── "I watched it" button — lets user self-report ──
-            if (!_videoWatched)
+            if (!_videoWatched && _videoId.isNotEmpty)
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -832,9 +863,9 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                 ),
               ),
 
-            if (!_videoWatched) const SizedBox(height: 12),
+            if (!_videoWatched && _videoId.isNotEmpty)
+              const SizedBox(height: 12),
 
-            // ── Quiz section ──
             if (_questions.isNotEmpty) ...[
               if (!_videoWatched && !_quizDone)
                 _infoBox(
@@ -860,17 +891,16 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
   }
 
   Widget _defaultThumbWidget() => Container(
-        height: 220,
-        color: Colors.black,
+        height: 220, color: Colors.black,
         child: const Icon(Icons.play_circle_outline_rounded,
             color: Colors.white30, size: 80),
       );
 
-  Widget _infoBox(
-      {required IconData icon,
-      required MaterialColor color,
-      required String text}) =>
-      Container(
+  Widget _infoBox({
+    required IconData icon,
+    required MaterialColor color,
+    required String text,
+  }) => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
             color: color.shade50,
@@ -917,7 +947,7 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
           const SizedBox(height: 14),
           GestureDetector(
             onTap: () => setState(
-                () {_quizMode = true; _currentQ = 0; _answers = {};}),
+                () { _quizMode = true; _currentQ = 0; _answers = {}; }),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
@@ -977,14 +1007,15 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
               _quizDone = false;
             }),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 24, vertical: 10),
               decoration: BoxDecoration(
                   color: Colors.red.shade500,
                   borderRadius: BorderRadius.circular(10)),
               child: const Text('Retry Quiz',
                   style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w700)),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -994,7 +1025,12 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
 
   // ── Quiz view ─────────────────────────────────────────────
   Widget _buildQuiz() {
+    if (_questions.isEmpty) {
+      return const Center(child: Text('No questions available.'));
+    }
+
     final q       = _questions[_currentQ];
+    final qText   = (q['question'] as String? ?? '').trim();
     final opts    = List<String>.from(q['options'] as List? ?? []);
     final correct = q['correctIndex'] as int? ?? 0;
     final isLast  = _currentQ == _questions.length - 1;
@@ -1009,21 +1045,32 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
       Expanded(
           child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+
           Text('Question ${_currentQ + 1} of ${_questions.length}',
               style: TextStyle(
                   fontSize: 12.5,
                   color: Colors.grey[500],
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
-          Text(q['question'] as String? ?? '',
-              style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black87,
-                  height: 1.4)),
-          const SizedBox(height: 24),
 
+          // ✅ Quiz question — translate + listen
+          TranslatedText(
+            text: qText,
+            contentId: 'quiz_q_${widget.tutorialId}_$_currentQ',
+            style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Colors.black87,
+                height: 1.4),
+            showListenButton: true,
+          ),
+
+          const SizedBox(height: 20),
+
+          // ✅ Answer options — each with translate + listen
           ...List.generate(opts.length, (i) {
             final selected  = _answers[_currentQ] == i;
             final isCorrect = i == correct;
@@ -1058,10 +1105,11 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                     color: bg,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: border, width: 1.5)),
-                child: Row(children: [
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  // Letter circle
                   Container(
-                    width: 28,
-                    height: 28,
+                    width: 28, height: 28,
+                    margin: const EdgeInsets.only(top: 2),
                     decoration: BoxDecoration(
                       color: (_showAnswer && isCorrect)
                           ? Colors.green.shade500
@@ -1083,18 +1131,29 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                                     : Colors.grey[600]))),
                   ),
                   const SizedBox(width: 12),
+                  // ✅ Option text — translate + listen
                   Expanded(
-                      child: Text(opts[i],
-                          style: TextStyle(
-                              fontSize: 14,
-                              color: textColor,
-                              height: 1.3))),
+                    child: TranslatedText(
+                      text: opts[i],
+                      contentId:
+                          'quiz_opt_${widget.tutorialId}_${_currentQ}_$i',
+                      style: TextStyle(
+                          fontSize: 14, color: textColor, height: 1.3),
+                      showListenButton: true,
+                    ),
+                  ),
                   if (_showAnswer && isCorrect)
-                    Icon(Icons.check_circle_rounded,
-                        color: Colors.green.shade500, size: 20),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Icon(Icons.check_circle_rounded,
+                          color: Colors.green.shade500, size: 20),
+                    ),
                   if (_showAnswer && selected && !isCorrect)
-                    Icon(Icons.cancel_rounded,
-                        color: Colors.red.shade400, size: 20),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Icon(Icons.cancel_rounded,
+                          color: Colors.red.shade400, size: 20),
+                    ),
                 ]),
               ),
             );
@@ -1131,7 +1190,7 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                       setState(() => _quizMode = false);
                     } else {
                       setState(
-                          () {_currentQ++; _showAnswer = false;});
+                          () { _currentQ++; _showAnswer = false; });
                     }
                   },
                   child: Container(
