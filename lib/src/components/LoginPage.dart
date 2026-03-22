@@ -438,16 +438,27 @@
 
 
 
-
 import 'package:flutter/material.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../services/auth_session_service.dart';
 import '../../services/user_session.dart';
 import '../../services/user_presence_service.dart';
 import 'ForgotPasswordPage.dart';
+
+// ─────────────────────────────────────────────────────────────
+//  SharedPreferences Keys
+// ─────────────────────────────────────────────────────────────
+class _PrefKeys {
+  static const String isLoggedIn    = 'is_logged_in';
+  static const String savedPhone    = 'saved_phone';      // e.g. "3001234567"
+  static const String savedPassword = 'saved_password';
+  static const String savedPhoneCode= 'saved_phone_code'; // e.g. "92"
+  static const String rememberMe    = 'remember_me';
+}
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -456,20 +467,20 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-// ✅ FIX 1: Added "with TickerProviderStateMixin" — required for vsync: this
 class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   final AuthService _authService = AuthService();
-  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _phoneController    = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool isLoading = false;
-  bool showPassword = false;
+  bool isLoading      = true;  // starts true → shows splash while checking session
+  bool showPassword   = false;
+  bool rememberMe     = false;
+  bool _autoChecking  = true;  // true while we silently check saved session
 
-  // ✅ FIX 2: Nullable instead of late — prevents LateInitializationError
   AnimationController? _fadeController;
   AnimationController? _slideController;
-  Animation<double>? _fadeAnimation;
-  Animation<Offset>? _slideAnimation;
+  Animation<double>?   _fadeAnimation;
+  Animation<Offset>?   _slideAnimation;
 
   // ── Brand Palette ──────────────────────────────────────────
   static const Color _navy          = Color(0xFF0B1A2E);
@@ -494,11 +505,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     e164Key: '',
   );
 
+  // ── Init ───────────────────────────────────────────────────
+
   @override
   void initState() {
     super.initState();
 
-    // ✅ FIX 3: All controllers initialized safely after super.initState()
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -514,93 +526,210 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _slideController!, curve: Curves.easeOut),
-    );
+    ).animate(CurvedAnimation(parent: _slideController!, curve: Curves.easeOut));
 
-    _fadeController!.forward();
-    _slideController!.forward();
+    // Check auto-login first, then load saved credentials
+    _checkAutoLogin();
   }
 
   @override
   void dispose() {
     _phoneController.dispose();
     _passwordController.dispose();
-    // ✅ FIX 4: Safe null-aware disposal
     _fadeController?.dispose();
     _slideController?.dispose();
     super.dispose();
   }
 
-  // ── ALL ORIGINAL FUNCTIONALITY — UNTOUCHED ─────────────────
+  // ── AUTO-LOGIN CHECK ───────────────────────────────────────
+  // Called once on app open. If user was previously logged in
+  // AND Firebase still has a valid auth session → go straight home.
+
+  Future<void> _checkAutoLogin() async {
+    try {
+      final prefs        = await SharedPreferences.getInstance();
+      final wasLoggedIn  = prefs.getBool(_PrefKeys.isLoggedIn)  ?? false;
+      final savedPhone   = prefs.getString(_PrefKeys.savedPhone)    ?? '';
+      final savedPass    = prefs.getString(_PrefKeys.savedPassword)  ?? '';
+      final savedCode    = prefs.getString(_PrefKeys.savedPhoneCode) ?? '92';
+      final remember     = prefs.getBool(_PrefKeys.rememberMe) ?? false;
+
+      // ── Case 1: Was logged in + Firebase session still alive → auto-login
+      if (wasLoggedIn && FirebaseAuth.instance.currentUser != null) {
+        final fullPhone = '+$savedCode$savedPhone';
+
+        // Restore Firestore user data into session
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(fullPhone)
+            .get();
+
+        if (userDoc.exists) {
+          final userData  = userDoc.data() as Map<String, dynamic>;
+          final userModel = UserModel.fromFirestore(userData);
+
+          UserSession().setUserSession(
+            phone: fullPhone,
+            uid: fullPhone,
+            userData: userModel,
+          );
+
+          await UserPresenceService().initializePresence();
+
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/home');
+            return; // ← exit early, never show login UI
+          }
+        }
+      }
+
+      // ── Case 2: No active session → load saved fields if rememberMe was on
+      if (remember && savedPhone.isNotEmpty) {
+        _phoneController.text    = savedPhone;
+        _passwordController.text = savedPass;
+
+        // Restore country code
+        try {
+          // Try to match by phone code — falls back to PK if not found
+          selectedCountry = Country(
+            phoneCode: savedCode,
+            countryCode: savedCode == '92' ? 'PK' : '',
+            e164Sc: 0,
+            geographic: true,
+            level: 1,
+            name: savedCode == '92' ? 'Pakistan' : '+$savedCode',
+            example: '',
+            displayName: savedCode == '92' ? 'Pakistan' : '+$savedCode',
+            displayNameNoCountryCode: savedCode == '92' ? 'Pakistan' : '+$savedCode',
+            e164Key: '',
+          );
+        } catch (_) {}
+      }
+
+      setState(() {
+        rememberMe    = remember;
+        _autoChecking = false;
+        isLoading     = false;
+      });
+
+      // Play entrance animation only after auto-check is done
+      _fadeController?.forward();
+      _slideController?.forward();
+    } catch (_) {
+      // If anything goes wrong just show the login form normally
+      setState(() {
+        _autoChecking = false;
+        isLoading     = false;
+      });
+      _fadeController?.forward();
+      _slideController?.forward();
+    }
+  }
+
+  // ── SAVE SESSION TO PREFS ──────────────────────────────────
+
+  Future<void> _saveSession({
+    required String phone,
+    required String password,
+    required String phoneCode,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_PrefKeys.isLoggedIn, true);
+    await prefs.setBool(_PrefKeys.rememberMe, rememberMe);
+
+    if (rememberMe) {
+      await prefs.setString(_PrefKeys.savedPhone,     phone);
+      await prefs.setString(_PrefKeys.savedPassword,  password);
+      await prefs.setString(_PrefKeys.savedPhoneCode, phoneCode);
+    } else {
+      // Don't store credentials if rememberMe is off — but still mark logged in
+      await prefs.remove(_PrefKeys.savedPhone);
+      await prefs.remove(_PrefKeys.savedPassword);
+      await prefs.setString(_PrefKeys.savedPhoneCode, phoneCode);
+    }
+  }
+
+  // ── CLEAR SESSION (call this from your logout button anywhere in app) ──
+  static Future<void> clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_PrefKeys.isLoggedIn, false);
+    await prefs.remove(_PrefKeys.savedPhone);
+    await prefs.remove(_PrefKeys.savedPassword);
+    await FirebaseAuth.instance.signOut();
+  }
+
+  // ── LOGIN LOGIC ────────────────────────────────────────────
 
   Future<void> _loginWithPassword() async {
     if (_phoneController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a phone number')),
-      );
+      _showSnack('Enter a phone number');
       return;
     }
     if (_passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter your password')),
-      );
+      _showSnack('Enter your password');
       return;
     }
 
     setState(() => isLoading = true);
 
     try {
-      final phoneNumber =
-          '+${selectedCountry.phoneCode}${_phoneController.text.trim()}';
-      final password = _passwordController.text.trim();
+      final rawPhone   = _phoneController.text.trim();
+      final phoneCode  = selectedCountry.phoneCode;
+      final fullPhone  = '+$phoneCode$rawPhone';
+      final password   = _passwordController.text.trim();
 
+      // Step 1: Firebase Auth sign-in
       final sessionService = AuthSessionService();
       await sessionService.signInWithPhonePassword(
-        phoneNumber: phoneNumber,
+        phoneNumber: fullPhone,
         password: password,
       );
-      print('✅ Firebase Auth session established');
 
+      // Step 2: Fetch Firestore user profile
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(phoneNumber)
+          .doc(fullPhone)
           .get();
 
       if (!userDoc.exists) {
         throw Exception('User profile not found. Please contact support.');
       }
 
-      final userData = userDoc.data() as Map<String, dynamic>;
+      final userData  = userDoc.data() as Map<String, dynamic>;
       final userModel = UserModel.fromFirestore(userData);
-      final uid = phoneNumber;
 
+      // Step 3: Update last login
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(phoneNumber)
+          .doc(fullPhone)
           .update({'lastLogin': FieldValue.serverTimestamp()});
 
+      // Step 4: Set session in memory
       UserSession().setUserSession(
-        phone: phoneNumber,
-        uid: uid,
+        phone: fullPhone,
+        uid: fullPhone,
         userData: userModel,
       );
 
-      final presenceService = UserPresenceService();
-      await presenceService.initializePresence();
+      // Step 5: Save session/credentials to SharedPreferences
+      await _saveSession(
+        phone: rawPhone,
+        password: password,
+        phoneCode: phoneCode,
+      );
 
+      // Step 6: Initialize presence
+      await UserPresenceService().initializePresence();
+
+      // Step 7: Navigate home
       if (mounted) Navigator.pushReplacementNamed(context, '/home');
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() => isLoading = false);
         String message = 'Login failed';
-        if (e.code == 'user-not-found') {
-          message = 'User not found. Please register first.';
-        } else if (e.code == 'wrong-password') {
-          message = 'Invalid password. Please try again.';
-        } else if (e.code == 'invalid-email') {
-          message = 'Invalid phone number format.';
-        }
+        if (e.code == 'user-not-found')  message = 'User not found. Please register first.';
+        if (e.code == 'wrong-password')  message = 'Invalid password. Please try again.';
+        if (e.code == 'invalid-email')   message = 'Invalid phone number format.';
         _showError(message);
       }
     } catch (e) {
@@ -629,6 +758,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _navigateToForgotPassword() async {
     final result = await Navigator.push(
       context,
@@ -649,7 +784,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ FIX 5: Content extracted so it can render with or without animations
+    // While silently checking auto-login → show splash/loader
+    if (_autoChecking) return _buildSplash();
+
     final content = SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
@@ -669,43 +806,34 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       backgroundColor: _navy,
       body: Stack(
         children: [
-          // ── Decorative background blobs ──
+          // Background blobs
           Positioned(
-            top: -80,
-            right: -60,
+            top: -80, right: -60,
             child: Container(
-              width: 260,
-              height: 260,
+              width: 260, height: 260,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    _amber.withOpacity(0.18),
-                    _amber.withOpacity(0.0),
-                  ],
-                ),
+                gradient: RadialGradient(colors: [
+                  _amber.withOpacity(0.18),
+                  _amber.withOpacity(0.0),
+                ]),
               ),
             ),
           ),
           Positioned(
-            bottom: -100,
-            left: -80,
+            bottom: -100, left: -80,
             child: Container(
-              width: 300,
-              height: 300,
+              width: 300, height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF1E40AF).withOpacity(0.22),
-                    Colors.transparent,
-                  ],
-                ),
+                gradient: RadialGradient(colors: [
+                  const Color(0xFF1E40AF).withOpacity(0.22),
+                  Colors.transparent,
+                ]),
               ),
             ),
           ),
 
-          // ✅ FIX 6: Null-safe animation guard — renders content even if animations fail
           SafeArea(
             child: _fadeAnimation != null && _slideAnimation != null
                 ? FadeTransition(
@@ -718,6 +846,75 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 : content,
           ),
         ],
+      ),
+    );
+  }
+
+  // ── SPLASH (auto-login check screen) ──────────────────────
+
+  Widget _buildSplash() {
+    return Scaffold(
+      backgroundColor: _navy,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [_amber, _amberLight],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _amber.withOpacity(0.35),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.home_repair_service,
+                color: _navy,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 20),
+            RichText(
+              text: const TextSpan(children: [
+                TextSpan(
+                  text: 'Fix',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: _textPrimary,
+                  ),
+                ),
+                TextSpan(
+                  text: 'Right',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: _amber,
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: _amber.withOpacity(0.7),
+                strokeWidth: 2.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -761,37 +958,31 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         const SizedBox(height: 18),
         RichText(
           textAlign: TextAlign.center,
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Fix',
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  color: _textPrimary,
-                  letterSpacing: -0.5,
-                ),
+          text: const TextSpan(children: [
+            TextSpan(
+              text: 'Fix',
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+                color: _textPrimary,
+                letterSpacing: -0.5,
               ),
-              TextSpan(
-                text: 'Right',
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  color: _amber,
-                  letterSpacing: -0.5,
-                ),
+            ),
+            TextSpan(
+              text: 'Right',
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+                color: _amber,
+                letterSpacing: -0.5,
               ),
-            ],
-          ),
+            ),
+          ]),
         ),
         const SizedBox(height: 6),
         const Text(
           'Sign in to your account',
-          style: TextStyle(
-            fontSize: 13,
-            color: _textSecondary,
-            letterSpacing: 0.3,
-          ),
+          style: TextStyle(fontSize: 13, color: _textSecondary, letterSpacing: 0.3),
         ),
       ],
     );
@@ -817,18 +1008,15 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Country Picker ──
+
+          // Country Picker
           _label('Country'),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: () {
-              showCountryPicker(
-                context: context,
-                onSelect: (Country country) {
-                  setState(() => selectedCountry = country);
-                },
-              );
-            },
+            onTap: () => showCountryPicker(
+              context: context,
+              onSelect: (c) => setState(() => selectedCountry = c),
+            ),
             child: _inputContainer(
               child: Row(
                 children: [
@@ -841,11 +1029,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                     ),
                   ),
                   const Spacer(),
-                  const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: _textSecondary,
-                    size: 22,
-                  ),
+                  const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: _textSecondary, size: 22),
                 ],
               ),
             ),
@@ -853,7 +1038,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
           const SizedBox(height: 20),
 
-          // ── Phone Number ──
+          // Phone Number
           _label('Phone Number'),
           const SizedBox(height: 8),
           _styledTextField(
@@ -865,7 +1050,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
           const SizedBox(height: 20),
 
-          // ── Password ──
+          // Password
           _label('Password'),
           const SizedBox(height: 8),
           _styledTextField(
@@ -885,32 +1070,69 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
 
-          // ── Forgot Password ──
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _navigateToForgotPassword,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Forgot Password?',
-                style: TextStyle(
-                  color: _amber,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+          // ── Remember Me + Forgot Password row ──
+          Row(
+            children: [
+              // Remember Me toggle
+              GestureDetector(
+                onTap: () => setState(() => rememberMe = !rememberMe),
+                child: Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        color: rememberMe ? _amber : Colors.transparent,
+                        border: Border.all(
+                          color: rememberMe ? _amber : _border,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: rememberMe
+                          ? const Icon(Icons.check_rounded,
+                              color: _navy, size: 13)
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Remember me',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+              const Spacer(),
+              // Forgot Password
+              TextButton(
+                onPressed: _navigateToForgotPassword,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Forgot Password?',
+                  style: TextStyle(
+                    color: _amber,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 22),
 
-          // ── Login Button ──
+          // Login Button
           SizedBox(
             width: double.infinity,
             height: 52,
@@ -925,8 +1147,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 ),
               ).copyWith(
                 overlayColor: WidgetStateProperty.all(
-                  Colors.white.withOpacity(0.08),
-                ),
+                    Colors.white.withOpacity(0.08)),
               ),
               child: Ink(
                 decoration: BoxDecoration(
@@ -989,7 +1210,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           style: TextStyle(color: _textSecondary, fontSize: 13),
         ),
         TextButton(
-          onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
+          onPressed: () =>
+              Navigator.pushReplacementNamed(context, '/signup'),
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             minimumSize: const Size(0, 32),
@@ -1049,10 +1271,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       cursorColor: _amber,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(
-          color: _textSecondary.withOpacity(0.6),
-          fontSize: 14,
-        ),
+        hintStyle:
+            TextStyle(color: _textSecondary.withOpacity(0.6), fontSize: 14),
         prefixIcon: prefixIcon != null
             ? Icon(prefixIcon, color: _textSecondary, size: 20)
             : null,
