@@ -857,14 +857,6 @@
 //   }
 // }
 
-
-
-
-
-
-
-
-
 import 'package:flutter/material.dart';
 import 'package:country_picker/country_picker.dart';
 import '../../services/auth_service.dart';
@@ -901,15 +893,41 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   String oldPasswordIs = '';
 
   // ── Brand Palette (matches LoginPage) ─────────────────────
-  static const Color _navy          = Color(0xFF0B1A2E);
-  static const Color _navyMid       = Color(0xFF112240);
-  static const Color _amber         = Color(0xFFF59E0B);
-  static const Color _amberLight    = Color(0xFFFCD34D);
-  static const Color _surface       = Color(0xFF172A45);
-  static const Color _border        = Color(0xFF1E3A5F);
-  static const Color _textPrimary   = Color(0xFFE2E8F0);
-  static const Color _textSecondary = Color(0xFF8DA4BE);
-  static const Color _green         = Color(0xFF10B981);
+  // static const Color _navy          = Color(0xFF0B1A2E);
+  // static const Color _navyMid       = Color(0xFF112240);
+  // static const Color _amber         = Color(0xFFF59E0B);
+  // static const Color _amberLight    = Color(0xFFFCD34D);
+  // static const Color _surface       = Color(0xFF172A45);
+  // static const Color _border        = Color(0xFF1E3A5F);
+  // static const Color _textPrimary   = Color(0xFFE2E8F0);
+  // static const Color _textSecondary = Color(0xFF8DA4BE);
+  // static const Color _green         = Color(0xFF10B981);
+
+  static const Color _navy = Color(
+    0xFF042B1E,
+  ); // very dark green (was dark navy blue)
+  static const Color _navyMid = Color(
+    0xFF073D2A,
+  ); // dark green mid (was navy mid blue)
+  static const Color _amber = Color(
+    0xFF38BDF8,
+  ); // sky blue accent (was amber orange)
+  static const Color _amberLight = Color(
+    0xFF7DD3FC,
+  ); // light sky blue (was amber yellow)
+  static const Color _surface = Color(
+    0xFF0C3D26,
+  ); // dark green surface (was dark blue surface)
+  static const Color _border = Color(
+    0xFF155C38,
+  ); // green border (was blue border)
+  static const Color _textPrimary = Color(
+    0xFFE2F4EC,
+  ); // off-white green tint (was blue-white)
+  static const Color _textSecondary = Color(
+    0xFF7AB89A,
+  ); // muted green-grey (was muted blue-grey)
+  static const Color _green = Color(0xFF10B981); // unchanged — already perfect
 
   // ── Animation ─────────────────────────────────────────────
   AnimationController? _fadeController;
@@ -953,8 +971,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
 
   Future<void> _fetchOldPassword() async {
     try {
-      final authDoc =
-          await _firestore.collection('auth').doc(phoneNumber).get();
+      final authDoc = await _firestore
+          .collection('auth')
+          .doc(phoneNumber)
+          .get();
 
       if (!authDoc.exists) throw Exception('User not found.');
 
@@ -1064,7 +1084,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+            const Icon(
+              Icons.check_circle_outline,
+              color: Colors.white,
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Expanded(child: Text('✅  $message')),
           ],
@@ -1087,7 +1111,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
         backgroundColor: _navy,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _textPrimary, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: _textPrimary,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -1110,10 +1138,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
               height: 220,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  _amber.withOpacity(0.14),
-                  Colors.transparent,
-                ]),
+                gradient: RadialGradient(
+                  colors: [_amber.withOpacity(0.14), Colors.transparent],
+                ),
               ),
             ),
           ),
@@ -1125,10 +1152,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
               height: 260,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  const Color(0xFF1E40AF).withOpacity(0.18),
-                  Colors.transparent,
-                ]),
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF1E40AF).withOpacity(0.18),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
@@ -1210,7 +1239,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
 
   Widget _buildStepIndicatorRow() {
     final steps = ['Phone', 'OTP', 'Password'];
-    final currentStep = !otpSent ? 0 : !otpVerified ? 1 : 2;
+    final currentStep = !otpSent
+        ? 0
+        : !otpVerified
+        ? 1
+        : 2;
 
     return Row(
       children: List.generate(steps.length * 2 - 1, (i) {
@@ -1243,8 +1276,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                 color: isDone
                     ? _amber
                     : isActive
-                        ? _navyMid
-                        : _navyMid,
+                    ? _navyMid
+                    : _navyMid,
                 border: Border.all(
                   color: isDone || isActive ? _amber : _border,
                   width: isActive ? 2 : 1.5,
@@ -1325,8 +1358,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                     ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: _textSecondary, size: 22),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: _textSecondary,
+                    size: 22,
+                  ),
                 ],
               ),
             ),
@@ -1540,7 +1576,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                   children: [
                     Expanded(
                       child: Text(
-                        _passwordVisible ? oldPasswordIs : '•' * oldPasswordIs.length,
+                        _passwordVisible
+                            ? oldPasswordIs
+                            : '•' * oldPasswordIs.length,
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
@@ -1581,8 +1619,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFEF4444), size: 18),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFEF4444),
+                  size: 18,
+                ),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -1691,16 +1732,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
       cursorColor: _amber,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle:
-            TextStyle(color: _textSecondary.withOpacity(0.6), fontSize: 14),
+        hintStyle: TextStyle(
+          color: _textSecondary.withOpacity(0.6),
+          fontSize: 14,
+        ),
         prefixIcon: prefixIcon != null
             ? Icon(prefixIcon, color: _textSecondary, size: 20)
             : null,
         suffixIcon: suffix,
         filled: true,
         fillColor: _navyMid,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: _border),
@@ -1800,8 +1845,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           side: const BorderSide(color: _border, width: 1.2),
         ),
         child: Text(

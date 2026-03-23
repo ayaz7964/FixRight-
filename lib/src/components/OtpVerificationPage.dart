@@ -1071,15 +1071,25 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
     with TickerProviderStateMixin {
 
   // ── Brand Palette ──────────────────────────────────────────
-  static const Color _navy          = Color(0xFF0B1A2E);
-  static const Color _navyMid       = Color(0xFF112240);
-  static const Color _amber         = Color(0xFFF59E0B);
-  static const Color _amberLight    = Color(0xFFFCD34D);
-  static const Color _surface       = Color(0xFF172A45);
-  static const Color _border        = Color(0xFF1E3A5F);
-  static const Color _textPrimary   = Color(0xFFE2E8F0);
-  static const Color _textSecondary = Color(0xFF8DA4BE);
-  static const Color _green         = Color(0xFF10B981);
+  // static const Color _navy          = Color(0xFF0B1A2E);
+  // static const Color _navyMid       = Color(0xFF112240);
+  // static const Color _amber         = Color(0xFFF59E0B);
+  // static const Color _amberLight    = Color(0xFFFCD34D);
+  // static const Color _surface       = Color(0xFF172A45);
+  // static const Color _border        = Color(0xFF1E3A5F);
+  // static const Color _textPrimary   = Color(0xFFE2E8F0);
+  // static const Color _textSecondary = Color(0xFF8DA4BE);
+  // static const Color _green         = Color(0xFF10B981);
+
+  static const Color _navy          = Color(0xFF042B1E);   // very dark green (was dark navy blue)
+static const Color _navyMid       = Color(0xFF073D2A);   // dark green mid (was navy mid blue)
+static const Color _amber         = Color(0xFF38BDF8);   // sky blue accent (was amber orange)
+static const Color _amberLight    = Color(0xFF7DD3FC);   // light sky blue (was amber yellow)
+static const Color _surface       = Color(0xFF0C3D26);   // dark green surface (was dark blue surface)
+static const Color _border        = Color(0xFF155C38);   // green border (was blue border)
+static const Color _textPrimary   = Color(0xFFE2F4EC);   // off-white green tint (was blue-white)
+static const Color _textSecondary = Color(0xFF7AB89A);   // muted green-grey (was muted blue-grey)
+static const Color _green         = Color(0xFF10B981);   // unchanged — already perfect
 
   final _otpController = TextEditingController();
   final _formKey       = GlobalKey<FormState>();
